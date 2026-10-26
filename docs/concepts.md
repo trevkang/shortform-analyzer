@@ -108,6 +108,13 @@ Each question has a `name` (`[a-z0-9_]+`, unique), `instructions`, and a `scope`
 
 The request sends every `scene` question scene by scene first, then the `video` questions. A question the model refused or left out, or a choice it did not offer, is **absent** from the result. Deciding what an absent answer means belongs to whoever wrote the question, which is why fallbacks live in Layer 2. After `scene` questions are expanded, a request must hold 1 to 400 questions, or `decide` throws before sending anything.
 
+A successful HTTP response must contain a JSON object; `answers` may be omitted or an array.
+Invalid JSON or a malformed response envelope throws `decide: invalid response …`.
+Malformed individual answers are absent, as are predicates outside 0 to 1 and scores outside
+0 to `levels.length - 1` (including non-finite numbers). Invalid choice probability entries are
+ignored; a valid choice still survives without probabilities. Missing and refused answers keep
+their usual fallbacks in Layer 2.
+
 ```ts
 import { decide, sceneEvidence } from "shortform-analyzer/primitives";
 

@@ -1,6 +1,8 @@
 // The generic decide (Layer 1): Examples 14 to 16 and the rules on question sets.
 import { describe, expect, it } from "vitest";
-import { decide, frameEvidence, sceneEvidence, type DecisionQuestion } from "../src/primitives.js";
+import { decide, frameEvidence, parseShortform, sceneEvidence, shortformQuestions, type DecisionQuestion } from "../src/primitives.js";
+import { screenCover } from "../src/index.js";
+import { parseAnswers } from "../src/blocks/decide.js";
 
 const spans = (n: number) => Array.from({ length: n }, (_, i) => ({ start: i, end: i + 1 }));
 const evidence = (n: number) => sceneEvidence(spans(n), spans(n).map(() => Buffer.from("jpg")), spans(n).map(() => ""), { duration: n });
@@ -17,6 +19,72 @@ function fake(reply: (body: any) => unknown) {
 }
 
 describe("decide", () => {
+  it("rejects invalid JSON instead of reporting a successful screen with default answers", async () => {
+    const fetchFn = (async () => new Response("not JSON", { status: 200 })) as typeof fetch;
+    const options = { openaiApiKey: "k", fetch: fetchFn };
+    await expect(decide(evidence(1), [logo], options)).rejects.toThrow(/^decide: invalid response.*JSON/);
+    await expect(screenCover(Buffer.from("jpg"), [], options)).resolves.toEqual({
+      ok: false, error: "decide: invalid response: expected JSON",
+    });
+  });
+
+  it.each([null, [], "unexpected", 42, { answers: {} }, { answers: null }])("rejects a malformed response envelope: %j", async (reply) => {
+    const { fetchFn } = fake(() => reply);
+    await expect(decide(evidence(1), [logo], { openaiApiKey: "k", fetch: fetchFn })).rejects.toThrow(/^decide: invalid response/);
+  });
+
+  it.each([{}, { answers: [] }, { answers: [{ type: "refusal", name: "logo_0" }] }])("keeps missing and refused answers absent: %j", async (reply) => {
+    const { fetchFn } = fake(() => reply);
+    await expect(decide(evidence(1), [logo], { openaiApiKey: "k", fetch: fetchFn })).resolves.toEqual({ video: {}, scenes: [{}] });
+  });
+
+  it("ignores malformed entries without losing a valid answer", async () => {
+    const { fetchFn } = fake(() => ({ answers: [null, 7, "bad", {}, { type: "predicate", name: "logo_0", probability: 0.8 }] }));
+    await expect(decide(evidence(1), [logo], { openaiApiKey: "k", fetch: fetchFn })).resolves.toEqual({
+      video: {}, scenes: [{ logo: { probability: 0.8 } }],
+    });
+  });
+
+  it.each([-1, 7, NaN, Infinity, -Infinity])("uses preset fallbacks for invalid probabilities and scores: %s", (value) => {
+    const labels = parseShortform(parseAnswers({ answers: [
+      { type: "predicate", name: "sells", probability: value },
+      { type: "predicate", name: "text_0", probability: value },
+      { type: "score", name: "hold_0", score: value },
+    ] }, shortformQuestions(), 1));
+    expect(labels.sells).toBe(0);
+    expect(labels.goal).toBe("awareness");
+    expect(labels.scenes[0].hold).toBe(2);
+    expect(labels.scenes[0].textOnScreen).toBeUndefined();
+  });
+
+  it.each([0, 1])("preserves boundary probabilities and scores: %s", (probability) => {
+    const d = parseAnswers({ answers: [
+      { type: "predicate", name: "sells", probability },
+      { type: "score", name: "hold_0", score: probability * 4 },
+    ] }, shortformQuestions(), 1);
+    expect(d.video.sells).toEqual({ probability });
+    expect(d.scenes[0].hold).toEqual({ score: probability * 4 });
+  });
+
+  it("keeps valid choice probabilities while dropping invalid entries", async () => {
+    const { fetchFn } = fake(() => ({ answers: [{ type: "choice", name: "mood", choice: "calm", probabilities: [
+      null, { value: "calm", probability: 0.7 }, { value: "tense", probability: 7 }, { value: {}, probability: 0.3 },
+    ] }] }));
+    const d = await decide(frameEvidence([], ""), [{ type: "choice", name: "mood", instructions: "?", choices: [{ value: "calm" }, { value: "tense" }] }], { openaiApiKey: "k", fetch: fetchFn });
+    expect(d.video.mood).toEqual({ choice: "calm", probs: { calm: 0.7 } });
+  });
+
+  it("preserves the HTTP status when an error response is not JSON", async () => {
+    const fetchFn = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
+    await expect(decide(evidence(1), [logo], { openaiApiKey: "k", fetch: fetchFn })).rejects.toThrow("decide: decisions 503: no body");
+  });
+
+  it("uses the usual screen fallback for an out-of-range caller answer", async () => {
+    const { fetchFn } = fake(() => ({ answers: [{ type: "predicate", name: "q_face", probability: 7 }] }));
+    const result = await screenCover(Buffer.from("jpg"), [{ name: "face", question: "Is a face visible?" }], { openaiApiKey: "k", fetch: fetchFn });
+    expect(result).toEqual({ ok: true, production: "mixed", voice: "none", answers: { face: 0.5 } });
+  });
+
   it("asks a scene question once per scene and returns one answer per scene (Example 14)", async () => {
     const { fetchFn, bodies } = fake((b) => ({ answers: b.questions.map((q: { name: string }, i: number) => ({ type: "predicate", name: q.name, probability: i / 10 })) }));
     const d = await decide(evidence(3), [logo], { openaiApiKey: "k", fetch: fetchFn });
