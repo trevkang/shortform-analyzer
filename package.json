@@ -1,6 +1,6 @@
 {
   "name": "shortform-analyzer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Break a short-form video into scenes: transcript, beat (hook, setup, value, proof, payoff, cta), lever and hold per scene, plus the video's format. A library, a CLI, an MCP server and an agent skill.",
   "license": "MIT",
   "author": "trevkang",

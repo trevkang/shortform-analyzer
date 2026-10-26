@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 (2026-10-26)
+
+- Published from GitHub Actions with npm provenance under the new name. No code changes.
+
 ## 0.3.0 (2026-10-25)
 
 - Renamed from `shortform-breakdown` to `shortform-analyzer`: the npm package, the CLI command
