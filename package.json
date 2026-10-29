@@ -1,7 +1,7 @@
 {
   "name": "shortform-analyzer",
-  "version": "0.3.1",
-  "description": "Break a short-form video into scenes: transcript, beat (hook, setup, value, proof, payoff, cta), lever and hold per scene, plus the video's format. A library, a CLI, an MCP server and an agent skill.",
+  "version": "0.4.0",
+  "description": "One fixed record per short-form video (TikTok, Reels, Shorts): topic, format, what it sells, tags, and per scene its role (hook, body, payoff, cta), footage, words and text on screen; for a post that sells or asks, a kind for each top comment. A library, a CLI, an MCP server and an agent skill.",
   "license": "MIT",
   "author": "trevkang",
   "homepage": "https://github.com/trevkang/shortform-analyzer#readme",
@@ -17,9 +17,10 @@
     "reels",
     "shorts",
     "scene-detection",
-    "transcript",
-    "whisper",
+    "subtitles",
+    "comments",
     "openai",
+    "apinoa",
     "mcp",
     "agent-skill",
     "ffmpeg"

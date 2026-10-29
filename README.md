@@ -2,7 +2,7 @@
 
 # shortform-analyzer
 
-*Break a short-form video into scenes, and say why each one keeps the viewer watching*
+*One fixed record per short-form video: what it is, what it sells, and what each scene does*
 
 [![npm version](https://img.shields.io/npm/v/shortform-analyzer?style=flat-square)](https://www.npmjs.com/package/shortform-analyzer)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/trevkang/shortform-analyzer/ci.yml?style=flat-square&label=CI)](https://github.com/trevkang/shortform-analyzer/actions)
@@ -10,64 +10,79 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-blue?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-[Features](#features) • [Benchmark](#benchmark) • [Get started](#get-started) • [Usage](#usage) • [How it works](#how-it-works) • [Building blocks](#building-blocks)
-
-<img src="https://raw.githubusercontent.com/trevkang/shortform-analyzer/main/docs/media/how-it-works.gif" width="100%" alt="A real TikTok (Zach King, a message to all AI, 27.9 s) plays while detectScenes cuts its timeline into 17 scenes. Then one Decisions request labels every scene at once: a beat (hook, setup, value, payoff, cta), a hold score, and the sections. The video is a skit, awareness, made as on camera person. Last, the playhead runs over the timeline again and shows each scene with its labels and words.">
-
-<sub>A real run of <code>analyzeVideo</code> on <a href="https://www.tiktok.com/@zachking/video/7655004069190192398">Zach King's “a message to all AI”</a> (the video is his) · <a href="docs/media/how-it-works.mp4">MP4</a></sub>
+[Features](#features) • [Time and cost](#time-and-cost) • [Get started](#get-started) • [Usage](#usage) • [How it works](#how-it-works) • [The record](#the-record) • [Building blocks](#building-blocks)
 
 </div>
 
-Give it a TikTok, Reel or Short and it tells you, scene by scene, what is said and shown, which beat the scene plays (hook, setup, value, proof, payoff, cta), what keeps the viewer watching and how strongly, and what format the video is. One line in Node, or a CLI, an MCP server and an agent skill.
+Give it a TikTok post, or a TikTok, Reels or Shorts file, and it returns one record: the video's topic and format,
+whether it sells something and what, tags, what it's about and how it's made, and scene by scene its role (hook, body,
+payoff, cta), its footage, whether the product shows, the words said and the text on screen. For a post that sells or
+asks for a comment, it also reads the top comments and gives each a kind. One line in Node, or a CLI, an MCP server and
+an agent skill.
 
 ```ts
 import { analyzeVideo, summarize } from "shortform-analyzer";
 
-const a = await analyzeVideo("clip.mp4");
+const a = await analyzeVideo("https://www.tiktok.com/@studyfetch/video/7500726429689204010");
 if (a.ok) console.log(summarize(a));
-// meme, awareness, 5 s, 3 scenes, 3 with text on screen. Made as text only, audio: music only.
-//   hook 0.0-1.5 s (curiosity): "Wait"
-//   value 1.5-3.0 s (demonstration) (nothing said)
-//   cta 3.0-4.5 s (demonstration): "Follow!"
 ```
+
+```
+tutorial about education, sells software ("StudyFetch"). 19.4 s, 6 scenes, words: TikTok's subtitles.
+Tags: studyfetch, studyapp, education, lecture, studytools, notes, flashcards, practicetests, recommendation.
+About: The video promotes StudyFetch as a way to turn a lecture video into detailed notes, flashcards, and practice tests. It shows a phone playing a neuroscience lecture, then generating study materials from it.
+Made: A handheld phone demo filmed over a wooden floor. It opens with the phone showing a lecture video, then cuts to a closer view as the user copies and pastes material into the StudyFetch app. Subsequent shots show generated notes, flashcards, and a multiple-choice practice question. Large text overlays narrate the benefits, ending with a sticker naming the app.
+  hook 0.0-3.0 s, 1 scene (camera body): "Look at this. Oh," [on screen: "I don’t have 1 hour 💀💀💀"]
+  body 3.0-19.4 s, 5 scenes (camera body, product shown): "perfect. Oh, my god. Isn't it great, Chris? I know. It's my dream. I have goosebumps everywhere. This is out of this world. What a birthday!..." [on screen: "I just copy + paste / watch this... / detailed notes in seconds / it even makes ..."]
+Comments: 50 read, 31 negative, 9 other, 7 positive, 3 intent.
+Cost: $0.00481.
+```
+
+<sub>A real run on <a href="https://www.tiktok.com/@studyfetch/video/7500726429689204010">@studyfetch's post</a>
+(the video is theirs).</sub>
 
 ## Features
 
-- **Scene by scene**: cuts, the words said in each scene, its middle frame, and a beat, lever and 0-4 hold score per scene.
-- **Fast and light**: one transcription and one decision request per video. About 3 to 9 seconds and under 70 MB of memory ([benchmark](#benchmark)).
-- **Never throws**: a bad video or a missing key comes back as `{ ok: false, error }`. A refused answer falls back to a stated default.
-- **Your own questions**: up to 20 yes/no questions per video, or any question per scene through the [building blocks](#building-blocks).
-- **Four ways in**: a library, a CLI, an MCP server for Claude, Cursor and others, and an agent skill.
-- **Readable output**: `analysis.json` with a [JSON Schema](schema/analysis.schema.json), a one-page `report.html`, and `sheet.jpg` with every frame on one image.
+- **One fixed record.** Every field, value and rule is written down in [docs/video-analysis.md](docs/video-analysis.md)
+  and is the same for every video, so records compare across videos and teams. You add questions; the record stays.
+- **Read from the content.** The hook ends where the video's opening ends, not at a fixed 3 seconds. Whether it sells,
+  each scene's role and the format come from what is said and shown, with TikTok's own facts about the post (the
+  account, caption, hashtags, sticker text, topic labels, commercial tags) as evidence.
+- **TikTok posts in one call**, through [apinoa](https://apinoa.com): the post, its video or photos, its own
+  subtitles, and for a post that sells or asks, up to 50 top comments, each labelled `cta_reply`, `intent`, `negative`,
+  `positive` or `other`.
+- **Cheap.** Two model requests per video and no transcription by default (TikTok's subtitles are free): about
+  $0.0029 per post, the post read included. `flex` halves the price of the describe request.
+- **Reuse.** Every stage has a version. Give an earlier result and only what changed runs again; a failure keeps what
+  finished.
+- **Never throws.** A bad input or a missing key comes back as `{ ok: false, error }`; a refused answer falls back to
+  a stated default.
+- **Yours to extend.** Up to 20 questions of your own, about the video or each scene, ride in the same request. The
+  transcriber, the describer and the decider can each be your own.
+- **Four ways in**: a library, a CLI, an MCP server and an agent skill. The output is `analysis.json` with a
+  [JSON Schema](schema/analysis.schema.json), a one-page `report.html`, and `sheet.jpg` with every frame on one image.
 
-## Benchmark
+## Time and cost
 
-Three public TikToks through four tools, all on the same model (`gpt-6-luna`), on an Apple Silicon laptop, October 2026. Median of 2 runs (video-analyzer: 1 run).
+23 public TikToks (20 videos of 6 to 95 s and 3 photo posts; 11 with TikTok subtitles), one at a time from the post URL to the record, on a busy Apple Silicon laptop, October 2026, on the default settings:
 
-| | **shortform-analyzer** | [claude-video-vision](https://github.com/jordanrendric/claude-video-vision) | [claude-real-video](https://github.com/HUANGCHIHHUNGLeo/claude-real-video) | [video-analyzer](https://github.com/byjlw/video-analyzer) |
-| --- | --- | --- | --- | --- |
-| Time, 17 s video | **6.8 s** | 17.7 s | 28.8 s | 81.9 s |
-| Time, 28 s video | **3.7 s** | 12.8 s | 19.6 s | 110.2 s |
-| Time, 61 s video | **8.2 s** | 16.6 s | 22.6 s | 346.7 s |
-| Peak memory | **65-69 MB** | 98-142 MB | 0.87-1.2 GB | 2.4-4.0 GB |
-| Install size | **24 MB** | 89 MB | 879 MB | 1.0 GB + a 1.5 GB model |
-| OpenAI requests per video | 2 | 2 | 1 (Whisper runs locally) | 18-62 (one per frame) |
-| Images sent | **7-17** | 34-62 | 23-67 | 17-61 |
-| Cost per video | $0.0025-0.0078 | $0.0039-0.0102 | **$0.0023-0.0063** | $0.0053-0.0289 |
+| | p50 | p90 |
+| --- | --- | --- |
+| **Time per post** | 8.5 s | 12.3 s |
+| ↳ post read (apinoa) | 0.1 s | 0.3 s |
+| ↳ download and scenes | 1.8 s | 3.1 s |
+| ↳ frames | 0.3 s | 0.9 s |
+| ↳ words (subtitles) | 0.0 s | 0.2 s |
+| ↳ describe request | 5.5 s | 7.8 s |
+| ↳ decide request | 0.5 s | 1.0 s |
+| ↳ comments, when read (8 posts) | 1.8 s | 2.4 s |
+| **Cost per post** | $0.0029 | $0.0060 |
 
-Why it is faster: one Decisions request labels every scene in 0.7-1.2 s, where the same model writing its answer as chat takes 7-18 s, and one frame per scene sends 2-4 times fewer images. claude-real-video costs a little less because it transcribes on your machine, paying with 9-44 s of CPU and about 1 GB of memory instead. Most of our time and cost is the `whisper-1` call.
-
-<details>
-<summary>How it was run</summary>
-
-- Videos: [@pet..supplies' cat brush](https://www.tiktok.com/@pet..supplies/video/7112871757157092650) (17 s, product demo), [Zach King, "a message to all AI"](https://www.tiktok.com/@zachking/video/7655004069190192398) (28 s, many cuts), [GaryVee](https://www.tiktok.com/@garyvee/video/7114641064446676267) (61 s, talking head). They belong to their creators and are not in this repo.
-- claude-video-vision (1.4.0) and claude-real-video (`ab4b9b2`) stop at frames and a transcript, so each gets one Chat Completions request asking for the same breakdown. video-analyzer (`2b095fa`) needs PyAV below 19 for its Whisper to run; `gpt-6-luna` rejects its `temperature` and `max_tokens`, which were dropped and renamed.
-- Prices: `gpt-6-luna` $0.10 per million input tokens and $0.50 per million output tokens, Decisions output free, `whisper-1` $0.006 a minute. Install size is `node_modules` after `npm install`.
-- Speed, cost and resources only. The quality of the labels is not compared.
-
-</details>
-
-To run it yourself, on stand-in videos or your own: [bench/](bench/README.md). The numbers above are in [`bench/results/2026-10.json`](bench/results/2026-10.json).
+Most of the time is the describe request; the download and scene detection grow with the video's length. The post reads
+were quick because apinoa had read these posts earlier that day: a first read took 1.1 s at p50 and 1.7 s at p90. Most
+of the cost is the decide request and the apinoa reads; a post you already read (`{ post }`) skips the first read. With
+`flex`, the describe request costs half and can take minutes. How accurate each field is: [eval/](eval/README.md). The
+comparison with other tools in [bench/](bench/README.md) was measured on 0.3.1.
 
 ## Get started
 
@@ -75,7 +90,7 @@ You need:
 
 - [Node.js](https://nodejs.org) 20 or later;
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`, `apt install ffmpeg`), or pass `ffmpegPath` and `ffprobePath`;
-- an OpenAI key in `OPENAI_API_KEY`.
+- an OpenAI key in `OPENAI_API_KEY`, and for TikTok posts an [apinoa](https://apinoa.com) key in `APINOA_API_KEY`.
 
 ```bash
 npm install shortform-analyzer
@@ -84,11 +99,12 @@ npm install shortform-analyzer
 Or run it without installing:
 
 ```bash
-npx shortform-analyzer analyze clip.mp4
+npx shortform-analyzer analyze https://www.tiktok.com/@handle/video/<id>
 ```
 
 > [!NOTE]
-> The input is a video file: a path or the video's bytes. A URL is refused; download the video first and pass the file.
+> A TikTok post URL (`/video/<id>` or `/photo/<id>`) is read through apinoa. Any other URL is refused, TikTok short
+> links included: download a Reel or a Short and pass the file. A file has no words unless transcription is on.
 
 ## Usage
 
@@ -98,53 +114,60 @@ npx shortform-analyzer analyze clip.mp4
 import { writeFile } from "node:fs/promises";
 import { analyzeVideo, reportHtml, summarize } from "shortform-analyzer";
 
-const a = await analyzeVideo("clip.mp4", {
+const a = await analyzeVideo("https://www.tiktok.com/@studyfetch/video/7500726429689204010", {
   questions: [{ name: "face_on_camera", question: "Is a person's face on camera at any point?" }],
 });
 if (!a.ok) throw new Error(a.error);
 
-a.scenes[0];          // { index, start, end, thumbnail, transcript, beat, beatProbs, lever, leverProbs, hold, textOnScreen }
-a.sections;           // consecutive scenes with the same beat
-a.format;             // "review", "tutorial", "meme", …
-a.answers;            // { face_on_camera: 0.04 }
+a.topic;        // "education"
+a.format;       // "tutorial"
+a.sells;        // "software", and a.product is "StudyFetch"
+a.scenes[0];    // { index, start, end, cut, role: "hook", footage, showsProduct, spoken, onScreenText, frame }
+a.comments;     // [{ id, text, likes, kind: "intent" }, …] when it sells or asks
+a.answers;      // { face_on_camera: false }
+a.costUsd;      // what this run cost
 console.log(summarize(a));                       // text for an agent
 await writeFile("report.html", reportHtml(a));   // one self-contained page
 ```
 
 | Export | Does |
 | --- | --- |
-| `analyzeVideo(input, options?)` | The full analysis. `input` is a file path or a `Buffer` |
-| `screenVideo(input, questions, options?)` | A quick check from 3 frames (15, 50, 85 percent) and one request: production, voice and your questions |
-| `screenCover(image, questions, options?)` | The same from one cover image, before any download |
-| `summarize(analysis)` | Format, goal, scene count, production, then one line per section |
-| `reportHtml(analysis, title?)` | A self-contained HTML page: the beat strip, then one row per scene |
+| `analyzeVideo(input, options?)` | The record. `input`: a file path, a `Buffer`, a TikTok post URL, or `{ post }` for a post you already read through apinoa |
+| `summarize(analysis)` | Text for an agent: the video's fields, then one line per run of scenes with the same role |
+| `reportHtml(analysis, title?)` | A self-contained HTML page: the role strip, then one row per scene, then the comments |
+| `openaiTranscriber`, `openaiDescriber`, `openaiDecider` | The default engines, to configure or to replace with your own |
+| `PRICES` | The price table behind `costUsd` and every stage's cost |
+| `TOPICS`, `FORMATS`, `SELLS`, `ROLES`, `FOOTAGE`, `COMMENT_KINDS` | The value lists |
 
-Options: `openaiApiKey` (default `OPENAI_API_KEY`), `openaiBaseUrl` (default `OPENAI_BASE_URL`, else `https://api.openai.com/v1`; Azure OpenAI works through it), `questions` (up to 20), `ffmpegPath`, `ffprobePath`, `fetch`.
-
-The output's fields are in [docs/reference.md](docs/reference.md#output) and [`schema/analysis.schema.json`](schema/analysis.schema.json) (`schemaVersion: 1`).
+The main options: `transcribe` (off; `true` runs `whisper-1` for a file, or a post without subtitles), `flex`,
+`comments` (on), `questions`, `reuse`, and `describer`, `decider` and `transcribe` for engines of your own. Every option
+and output field is in [docs/reference.md](docs/reference.md); the output's schema is
+[`schema/analysis.schema.json`](schema/analysis.schema.json) (`schemaVersion: 2`).
 
 ### CLI
 
 ```bash
-npx shortform-analyzer analyze clip.mp4
-npx shortform-analyzer analyze clip.mp4 --question face="Is a person's face on camera?" --json
-npx shortform-analyzer screen clip.mp4 --question face="Is a person's face on camera?"
+npx shortform-analyzer analyze https://www.tiktok.com/@handle/video/<id>
+npx shortform-analyzer analyze clip.mp4 --transcribe --question face="Is a person's face on camera?" --json
 ```
 
-`analyze` prints the summary (or the JSON with `--json`) and writes `<file>.analysis/`:
+`analyze` prints the summary, or with `--json` the record without frames and `raw`, and writes `<post id>.analysis/`
+(or `<file>.analysis/` next to a file):
 
 - `analysis.json` and `report.html`;
 - `frames/01.jpg`…: the 512 px frames the model saw;
 - `sheet.jpg`: every frame tiled 4 wide, so an agent can look at one image.
 
-Exit codes: 0 ok, 1 the analysis failed (the reason is on stderr), 2 a usage error.
+Running it again on the same video reuses the folder: only the stages whose version changed run. Flags: `--out`,
+`--transcribe`, `--flex`, `--no-comments`, `--question name="question"` (yes/no, repeatable), `--json`. Exit codes: 0
+ok, 1 the analysis failed (the reason is on stderr), 2 a usage error.
 
 ### MCP server
 
 Claude Code:
 
 ```bash
-claude mcp add shortform-analyzer -e OPENAI_API_KEY=sk-... -- npx -y shortform-analyzer mcp
+claude mcp add shortform-analyzer -e OPENAI_API_KEY=sk-... -e APINOA_API_KEY=... -- npx -y shortform-analyzer mcp
 ```
 
 Claude Desktop, Cursor and other clients:
@@ -155,7 +178,7 @@ Claude Desktop, Cursor and other clients:
     "shortform-analyzer": {
       "command": "npx",
       "args": ["-y", "shortform-analyzer", "mcp"],
-      "env": { "OPENAI_API_KEY": "sk-..." }
+      "env": { "OPENAI_API_KEY": "sk-...", "APINOA_API_KEY": "..." }
     }
   }
 }
@@ -163,12 +186,12 @@ Claude Desktop, Cursor and other clients:
 
 | Tool | Input | Returns |
 | --- | --- | --- |
-| `analyze_video` | `input` (a file path), `questions` (optional) | The summary, the output folder, and the analysis without thumbnails |
-| `screen_video` | `input`, `questions` | production, voice, answers |
+| `analyze_video` | `input` (a file path or a TikTok post URL), `questions` (optional: yes/no or a choice, about the video or each scene), `transcribe` (optional) | The summary, the output folder, and the record without frames and `raw` |
 
 ### Agent skill
 
-[`skills/shortform-analyzer/SKILL.md`](skills/shortform-analyzer/SKILL.md) teaches an agent when to run it and how to read the result. It ships in the npm package too.
+[`skills/shortform-analyzer/SKILL.md`](skills/shortform-analyzer/SKILL.md) teaches an agent when to run it and how to
+read the result. It ships in the npm package too.
 
 ```bash
 npx skills add trevkang/shortform-analyzer
@@ -176,25 +199,40 @@ npx skills add trevkang/shortform-analyzer
 
 ## How it works
 
-One video goes through four steps (the animation above shows steps 1 and 4):
-
-| Step | What happens | Function |
+| Stage | What happens | Calls |
 | --- | --- | --- |
-| 1. **Scenes** | ffmpeg finds the cuts. Flashes under 0.4 s join the scene before; a take over 5 s is split so a one-take video still has a beginning, middle and end | `detectScenes` |
-| 2. **Transcript** | `whisper-1` writes every word with its time; each word goes to the scene its midpoint falls in | `transcribe`, `alignWords` |
-| 3. **Frames** | The middle frame of every scene, 512 px for the model | `extractFrames` |
-| 4. **Decisions** | One OpenAI Decisions request reads every scene's frame next to its words, in order, and answers questions about each scene and the whole video | `decide` |
+| `source` | Reads the TikTok post through apinoa, or takes the post you pass | apinoa post read |
+| `scenes` | ffmpeg finds the cuts. Flashes under 0.4 s join the scene before; a take over 5 s is split, so a one-take video still has a beginning, middle and end | none |
+| `frames` | The middle frame of every scene, 512 px | none |
+| `speech` | The post's own subtitles, each word given to the scene its midpoint falls in. Transcription only when it's on | the subtitle file |
+| `describe` | One request writes the product, the tags, what the video is about and how it's made, and each scene's text on screen | OpenAI Responses |
+| `decide` | One request picks every value, for the video and each scene, reading what describe wrote next to the frames and words, and answers your questions | OpenAI Decisions |
+| `comments` | For a post that sells or asks: its top comments, and one request gives each a kind | apinoa comments read, OpenAI Decisions |
 
-```
-                       ┌─ extractFrames ─────────────────────┐
-video ─ probe ─ detectScenes                                 ├─ sceneEvidence ─ decide ─ parseShortform ─ Analysis
-                       └─ extractAudio ─ transcribe ─ alignWords ┘                 ▲
-                                                                     shortformQuestions (or yours)
-```
+Then code applies the rules: the fallback for a refused answer, the hook rule, and `product` following `sells`.
 
-The words are given to the scenes **before** the decision, because the model reads them side by side. And the decision is one request for the whole video, not one per scene, because a scene's role depends on its neighbours: the same shot is a hook at 0 s and a payoff at 20 s.
+Describing and deciding are two requests: one writes what the video shows in its own words, the other picks each value
+from a closed list, with a probability. A wrong description and a wrong label are then different bugs, and a change to
+the labels reruns only the decide request. The decide request covers the whole video at once, because a scene's role
+depends on its neighbours: the same shot is a hook at 0 s and a payoff at 20 s. The stages and layers are explained in
+[docs/concepts.md](docs/concepts.md).
 
-The short-form labels are just one set of questions. Steps 1 to 4 know nothing about short-form video, so you can use them on their own or ask your own questions per scene. The layers are explained in [docs/concepts.md](docs/concepts.md).
+## The record
+
+| Field | Values |
+| --- | --- |
+| `topic` | `beauty` · `fashion` · `gaming` · `tech` · `education` · `business_money` · `entertainment` · `music_dance` · `food` · `fitness_sports` · `shopping` · `lifestyle` · `other` |
+| `format` | `tutorial` · `listicle` · `before_after` · `review` · `storytime` · `skit` · `performance` · `reaction` · `highlight` · `interview` · `vlog` · `talking_head` · `other` |
+| `sells` | `none` · `software` · `physical_goods` · `service` · `digital_content` · `other` |
+| `asksForComment` | yes or no |
+| A scene's `role` | `hook` · `body` · `payoff` · `cta` |
+| A scene's `footage` | `camera_face` · `camera_body` · `camera_no_person` · `screen` · `graphics` · `other` |
+| A scene's `showsProduct` | yes or no, when the video sells |
+| A comment's `kind` | `cta_reply` · `intent` · `negative` · `positive` · `other` |
+
+The model writes the rest in its own words: `product`, `tags`, `description`, `formatDescription` and each scene's
+`onScreenText`. Each value's test, example and near misses, and what happens when an answer is missing, are in
+[docs/video-analysis.md](docs/video-analysis.md).
 
 ## Building blocks
 
@@ -203,56 +241,42 @@ Every step is public from `shortform-analyzer/primitives`.
 > [!WARNING]
 > This subpath is experimental: a minor version may change a signature. Every change is in [CHANGELOG.md](CHANGELOG.md).
 
-Scenes and the words said in each, with no model call:
+TikTok subtitles aligned to the cuts, with no model call:
 
 ```ts
-import { probe, detectScenes, extractAudio, transcribe, alignWords } from "shortform-analyzer/primitives";
+import { alignWords, cueWords, detectScenes, download, fetchSubtitles, parseVtt, postMedia, probe, readPost } from "shortform-analyzer/primitives";
 
-const { duration } = await probe("talk.mp4");
-const spans = await detectScenes("talk.mp4", { duration, maxTake: 30 });
-const { words } = await transcribe(await extractAudio("talk.mp4"));
-const texts = alignWords(words, spans);
+const post = await readPost("7500726429689204010");   // one apinoa call, APINOA_API_KEY
+const media = postMedia(post);                         // the video link and the ASR subtitle track
+await download(media.video!, "clip.mp4");
+const { duration } = await probe("clip.mp4");
+const spans = await detectScenes("clip.mp4", { duration });
+const said = alignWords(cueWords(parseVtt(await fetchSubtitles(media.subtitles!.url))), spans); // one string per scene
 ```
 
-The short-form preset plus a question of your own, asked of every scene:
+A question of your own, asked of every scene:
 
 ```ts
-import { decide, extractFrames, parseShortform, sceneEvidence, shortformQuestions, type DecisionQuestion } from "shortform-analyzer/primitives";
+import { decide, extractFrames, sceneEvidence, type DecisionQuestion } from "shortform-analyzer/primitives";
 
 const frames = await extractFrames("clip.mp4", spans);
-const questions: DecisionQuestion[] = [
-  ...shortformQuestions(),
-  { type: "predicate", name: "product", scope: "scene", instructions: "Is the product visible in scene {scene}?" },
-];
-const d = await decide(sceneEvidence(spans, frames, texts, { duration }), questions);
-const labels = parseShortform(d);                                    // beats, levers, hold… with fallbacks
-const product = d.scenes.map((s) => s.product?.probability ?? 0.5); // your answer, per scene
+const logo: DecisionQuestion = { type: "predicate", name: "logo", scope: "scene", instructions: "Is the brand logo visible in scene {scene}?" };
+const d = await decide(sceneEvidence(spans, frames, said, { duration, words: "subtitles" }), [logo]);
+const logoShown = d.scenes.map((s) => (s.logo?.probability ?? 0.5) >= 0.5);
 ```
 
-`decide` takes `predicate` (a probability), `choice` (one of your options, with probabilities) and `score` (0 to the number of levels − 1) questions, for the whole video or per scene, up to 400 per request. It returns only what the model answered: a refused answer is absent, and you choose the fallback. The building blocks throw an `Error` that names the step (`video:`, `transcribe:`, `decide:`); the functions above them never throw.
-
-## The labels
-
-| Beat | The scene |
-|---|---|
-| `hook` | Stops the scroll in the first seconds: a bold claim, question, surprise or problem |
-| `setup` | Gives context: who, what problem, why it matters |
-| `value` | The body: the demo, the steps, the story unfolding, the reveal |
-| `proof` | Shows it works: results, before/after, reviews, numbers |
-| `payoff` | Delivers what the hook promised: the punchline, the result, the twist |
-| `cta` | Asks the viewer to act: follow, comment, buy, link in bio |
-
-- **Levers:** `curiosity`, `pattern_interrupt`, `relatable`, `demonstration`, `social_proof`, `emotion`, `direct_ask`, `none`.
-- **Hold:** 0 (most viewers scroll away) to 4 (nearly impossible to scroll away).
-- **Formats:** `meme`, `skit`, `product_demo`, `tutorial`, `review`, `storytime`, `before_after`, `unboxing`, `behind_the_scenes`, `talking_head`, `other`. `goal` is `conversion` when `sells` ≥ 0.5, else `awareness`.
-- **Production:** `on_camera_person`, `screen_recording`, `hands_only`, `broll_voiceover`, `text_only`, `animation`, `mixed`.
-- **Voice:** `on_camera_speech`, `voiceover`, `none`, `music_only`.
-
-When the model refuses or skips an answer: beat `value`, lever `none`, hold 2, format `other`, production `mixed`, voice `none`, a question 0.5. A video without speech is still analysed from its frames, with an empty transcript and `transcriptError`. Definitions and thresholds are in [docs/video-analysis.md](docs/video-analysis.md).
+`decide` takes `predicate` (a probability), `choice` (one of your values, with probabilities) and `score` questions,
+for the whole video or per scene, up to 400 per request. It returns only what the model answered: a refused answer is
+absent, and you choose the fallback. The building blocks throw an `Error` that names the stage (`source:`, `video:`,
+`speech:`, `describe:`, `decide:`); `analyzeVideo` never throws.
 
 ## Keys and costs
 
-Each video takes one `whisper-1` transcription and one Decisions request (`gpt-6-luna`) on your `OPENAI_API_KEY`: from $0.0025 for a 17 s video to $0.0078 for a 61 s one ([benchmark](#benchmark)). There is no telemetry, and your key goes only to OpenAI.
+- OpenAI, on `OPENAI_API_KEY`: one Responses and one Decisions request per video, and one more Decisions request when
+  comments are read. `whisper-1` per minute of audio when transcription is on.
+- apinoa, on `APINOA_API_KEY`: $0.001 per post read and per comments read.
+- `costUsd` says what each run cost, from the `PRICES` table. There is no telemetry; the keys go only to OpenAI and
+  apinoa.
 
 > [!IMPORTANT]
 > Analyse your own videos, or videos you have the right to analyse.
@@ -266,10 +290,10 @@ pnpm typecheck
 pnpm test:consumer  # installs the packed tarball into a blank project and imports it
 ```
 
-Start with [docs/concepts.md](docs/concepts.md); a change starts as a doc edit, then a test, then the code.
+Start with [docs/concepts.md](docs/concepts.md); a change starts as a doc edit, then a test, then the code. A change to
+a prompt or a model runs [eval/](eval/README.md) before and after.
 
 ## Credits
 
-Built by [Trevor](https://github.com/trevkang) and [Viktor](https://github.com/Reblexis). It started as the video analysis module of viral-oracle, their team project at the Omnara hackathon (October 2026).
-
-The how-it-works animation is rendered with `render.mjs` from [Barty-Bart/motion-graphics](https://github.com/Barty-Bart/motion-graphics) (MIT); the video in it belongs to [Zach King](https://www.tiktok.com/@zachking); Geist fonts are under the SIL Open Font License ([docs/media](docs/media/README.md)).
+Built by [Trevor](https://github.com/trevkang) and [Viktor](https://github.com/Reblexis). It started as the video
+analysis module of viral-oracle, their team project at the Omnara hackathon (October 2026).
