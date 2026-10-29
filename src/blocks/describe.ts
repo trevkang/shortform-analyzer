@@ -3,8 +3,8 @@ import { openai, send, stage } from "./run.js";
 
 export const DESCRIBE_MODEL = "gpt-6-luna";
 /**
- * gpt-6-luna's reasoning effort for describe. Measured on 24 TikToks: half medium's time (5.2 s against 9.9 s, p50)
- * with labels no further from medium than a second medium run is; `none` wrote one scene's text into every scene.
+ * gpt-6-luna's reasoning effort for describe. Measured on 24 TikToks against reference labels: as accurate as medium
+ * (the two differ no more than two medium runs do) at 43% less per video; `none` wrote one scene's text into every scene.
  */
 export const DESCRIBE_EFFORT = "low";
 export const FLEX_TIMEOUT_MS = 15 * 60_000; // flex requests can queue; OpenAI's examples wait 15 minutes
@@ -21,8 +21,7 @@ export function responsesContent(evidence: Evidence): unknown[] {
   ];
 }
 
-/** The request body for OpenAI Responses with a strict JSON schema. */
-/** The Responses body. `effort` defaults to `DESCRIBE_EFFORT` for `DESCRIBE_MODEL`, and to none sent for another model. */
+/** The Responses body, with a strict JSON schema. `effort` defaults to `DESCRIBE_EFFORT` for `DESCRIBE_MODEL`, and to none sent for another model. */
 export function describeBody(evidence: Evidence, request: DescribeRequest, model = DESCRIBE_MODEL, effort?: string) {
   const reasoning = effort ?? (model === DESCRIBE_MODEL ? DESCRIBE_EFFORT : undefined);
   return {
