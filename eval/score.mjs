@@ -42,8 +42,10 @@ for (const file of readdirSync(labelsDir).filter((f) => f.endsWith(".json")).sor
     count("footage", s.footage, got.scenes[i].footage, sure(`${key}.footage`) && sure(key), `${id} scene ${i + 1}`);
     if (want.sells !== "none" && got.sells !== "none") count("showsProduct", s.showsProduct, got.scenes[i].showsProduct, sure(`${key}.showsProduct`), `${id} scene ${i + 1}`);
   });
-  if (want.comments && got.comments && want.comments.length === got.comments.length) {
-    want.comments.forEach((k, i) => count("comment kind", k, got.comments[i].kind, sure(`comments[${i}]`), `${id} comment ${i + 1}`));
+  // Comments by id: a later run can read them in another order, or read others.
+  const read = new Map((got.comments ?? []).map((c) => [c.id, c.kind]));
+  for (const [cid, kind] of Object.entries(want.comments ?? {})) {
+    if (read.has(cid)) count("comment kind", kind, read.get(cid), sure(`comments.${cid}`), `${id} comment ${cid}`);
   }
 }
 

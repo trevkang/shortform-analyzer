@@ -27,13 +27,14 @@ frame per scene and the words in each scene. Don't look at the record while labe
 {
   "topic": "education", "format": "tutorial", "sells": "software", "product": "StudyFetch", "asksForComment": false,
   "scenes": [{ "role": "hook", "footage": "screen", "showsProduct": true }],
-  "comments": ["intent", "positive"],
+  "comments": { "7432114906157491000": "intent", "7432118830426358000": "positive" },
   "unsure": { "format": "review was close: it compares two apps" }
 }
 ```
 
 - `scenes`: one entry per scene of the analysis, in order. `showsProduct` is `null` when `sells` is `none`.
-- `comments`: one kind per comment in the analysis, in order. Leave it out when no comments were read.
-- `unsure`: each field where a second value was close, with why. The scores are given twice: on every label, and on
-  the labels not marked unsure.
+- `comments`: the kind of each comment, by the comment's `id`. Only the comments a run read are scored: a later run
+  can read them in another order, or read others. Leave it out when no comments were read.
+- `unsure`: each label where a second value was close, with why, keyed `format`, `scenes[2].role` or
+  `comments.<id>`. The scores are given twice: on every label, and on the labels not marked unsure.
 - A `product` matches when either name contains the other, ignoring case. It is scored only when both sides sell.
