@@ -1,6 +1,6 @@
 ---
 name: shortform-analyzer
-description: Analyze a short-form video (a TikTok post URL, or a TikTok, Reels or Shorts file) into one fixed record - its topic, format, whether it sells something and what, tags, what it's about and how it's made, and scene by scene its role (hook, body, payoff, cta), footage, words and text on screen; for a TikTok post that sells or asks for a comment, its top comments with a kind each. Use when someone wants to know what a short video is, how it is built, what it pitches, or how viewers reacted.
+description: Analyze a short-form video (a TikTok post URL, or a TikTok, Reels or Shorts file) into one fixed record - its topic, format, whether it sells something and what, tags, what it's about and how it's made, and scene by scene its role (hook, body, payoff, cta), footage, what fills the frame, its layout (split screen, overlay, text bar), whether it has captions or a message, words and text on screen; for a TikTok post that sells or asks for a comment, its top comments with a kind each. Use when someone wants to know what a short video is, how it is built, what it pitches, or how viewers reacted.
 ---
 
 # shortform-analyzer
@@ -31,7 +31,8 @@ own subtitles. A file, or a post without subtitles, has no words unless you add 
 - the first line: format, topic, what it sells, whether it asks for a comment, length, scene count, and where the
   words came from;
 - `Tags`, `About` (what it's about) and `Made` (how it's made);
-- one line per run of scenes with the same role: the role, the time, the footage and what is said and shown;
+- one line per run of scenes with the same role: the role, the time, the footage, what fills the frame, the layout
+  and text that show (split screen, overlay, text bar, captions, message), and what is said and shown;
 - for a post that sells or asks: how many comments were read, and how many of each kind;
 - `sheet.jpg`: every scene's frame on one image, 4 wide. **Open it** to see what is shown, not only what is said;
 - `analysis.json`: the whole record, every probability in `raw.decide`;

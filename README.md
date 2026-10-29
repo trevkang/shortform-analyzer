@@ -16,7 +16,8 @@
 
 Give it a TikTok post, or a TikTok, Reels or Shorts file, and it returns one record: the video's topic and format,
 whether it sells something and what, tags, what it's about and how it's made, and scene by scene its role (hook, body,
-payoff, cta), its footage, whether the product shows, the words said and the text on screen. For a post that sells or
+payoff, cta), its footage, what fills the frame, how the frame is laid out (split screen, overlay, text bar), whether it
+has captions or a message, whether the product shows, the words said and the text on screen. For a post that sells or
 asks for a comment, it also reads the top comments and gives each a kind. One line in Node, or a CLI, an MCP server and
 an agent skill.
 
@@ -39,7 +40,8 @@ Cost: $0.00481.
 ```
 
 <sub>A real run on <a href="https://www.tiktok.com/@studyfetch/video/7500726429689204010">@studyfetch's post</a>
-(the video is theirs).</sub>
+(the video is theirs), made with 0.4.1. From 0.5.0 each scene line also gives, after the footage, what fills the frame
+and the layout and text fields that are yes.</sub>
 
 ## Features
 
@@ -52,7 +54,7 @@ Cost: $0.00481.
   subtitles, and for a post that sells or asks, up to 50 top comments, each labelled `cta_reply`, `intent`, `negative`,
   `positive` or `other`.
 - **Cheap.** Two model requests per video and no transcription by default (TikTok's subtitles are free): about
-  $0.0029 per post, the post read included. `flex` halves the price of the describe request.
+  $0.0037 per post, the post read included. `flex` halves the price of the describe request.
 - **Reuse.** Every stage has a version. Give an earlier result and only what changed runs again; a failure keeps what
   finished.
 - **Never throws.** A bad input or a missing key comes back as `{ ok: false, error }`; a refused answer falls back to
@@ -77,6 +79,9 @@ Cost: $0.00481.
 | ↳ decide request | 0.5 s | 1.0 s |
 | ↳ comments, when read (8 posts) | 1.8 s | 2.4 s |
 | **Cost per post** | $0.0029 | $0.0060 |
+
+These are 0.4.0's numbers. 0.5.0 asks the decide request six more questions per scene: on 36 TikToks it read 16,415
+input tokens per post on average instead of 8,092, about $0.0008 more per post, so about $0.0037 at p50.
 
 Most of the time is the describe request; the download and scene detection grow with the video's length. The post reads
 were quick because apinoa had read these posts earlier that day: a first read took 1.1 s at p50 and 1.7 s at p90. Most
@@ -122,7 +127,8 @@ if (!a.ok) throw new Error(a.error);
 a.topic;        // "education"
 a.format;       // "tutorial"
 a.sells;        // "software", and a.product is "StudyFetch"
-a.scenes[0];    // { index, start, end, cut, role: "hook", footage, showsProduct, spoken, onScreenText, frame }
+a.scenes[0];    // { index, start, end, cut, role: "hook", footage, showsProduct, subject, splitScreen, overlay, textBar,
+                //   captions, message, spoken, onScreenText, frame }
 a.comments;     // [{ id, text, likes, kind: "intent" }, …] when it sells or asks
 a.answers;      // { face_on_camera: false }
 a.costUsd;      // what this run cost
@@ -228,6 +234,9 @@ depends on its neighbours: the same shot is a hook at 0 s and a payoff at 20 s. 
 | A scene's `role` | `hook` · `body` · `payoff` · `cta` |
 | A scene's `footage` | `camera_face` · `camera_body` · `camera_no_person` · `screen` · `graphics` · `other` |
 | A scene's `showsProduct` | yes or no, when the video sells |
+| A scene's `subject` | `face` · `full_body` · `people` · `hands` · `object` · `animal` · `place` · `slide` · `interface` |
+| A scene's `splitScreen`, `overlay`, `textBar` | yes or no: how the frame is laid out |
+| A scene's `captions`, `message` | yes or no: what the text on screen does |
 | A comment's `kind` | `cta_reply` · `intent` · `negative` · `positive` · `other` |
 
 The model writes the rest in its own words: `product`, `tags`, `description`, `formatDescription` and each scene's
@@ -266,7 +275,7 @@ const logoShown = d.scenes.map((s) => (s.logo?.probability ?? 0.5) >= 0.5);
 ```
 
 `decide` takes `predicate` (a probability), `choice` (one of your values, with probabilities) and `score` questions,
-for the whole video or per scene, up to 400 per request. It returns only what the model answered: a refused answer is
+for the whole video or per scene, up to 400 per request and more in several requests. It returns only what the model answered: a refused answer is
 absent, and you choose the fallback. The building blocks throw an `Error` that names the stage (`source:`, `video:`,
 `speech:`, `describe:`, `decide:`); `analyzeVideo` never throws.
 

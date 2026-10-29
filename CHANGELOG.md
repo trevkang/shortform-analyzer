@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0 (2026-10-29)
+
+Six new fields on every scene, defined in [docs/video-analysis.md](docs/video-analysis.md#subject). `schemaVersion`
+stays 2: fields are added, none removed.
+
+- `subject`: what fills most of the frame, by what is seen however it was made: `face`, `full_body`, `people`,
+  `hands`, `object`, `animal`, `place`, `slide`, `interface`. Left out when it wasn't answered, since it has no `other`.
+- `splitScreen`, `overlay` and `textBar`: how the frame is laid out. `captions` and `message`: what the text on screen
+  does. Each is yes or no, and no when it wasn't answered.
+- They are six more questions per scene in the same decide request, in the wording [eval/](eval/README.md) measured on
+  36 TikToks (216 scenes, 5 runs each): the runs' majority matched the reference labels on 77–98% of the scenes, and on
+  87–100% of the labels marked sure.
+- The decide request reads about twice the tokens: 16,415 input tokens per post on average instead of 8,092, about
+  $0.0008 more per post. The describe request is unchanged.
+- The decide stage is version 2, so `reuse` of a 0.4 result decides again, and reads the comments again where it read
+  them.
+- `decide` sends more than 400 questions (after expanding per scene) in several requests of at most 400, each with the
+  whole evidence, where it threw before. The answers don't change: Decisions answers each question on its own.
+  `Decisions` gets `requests` when there was more than one, and the decide stage counts each request and its frames.
+  The record's own questions fit one request at 40 scenes; your 20 questions can add a second.
+- The summary and `report.html` give each scene's `subject` and the layout and text fields that are yes.
+- `shortform-analyzer` exports `SUBJECTS` and the type `Subject`; `primitives` exports `SUBJECTS`, and `TAXONOMY` has
+  `subject`.
+- eval/: the six are record fields, so `candidates.mjs` is gone; `score.mjs` scores them where a label has them.
+
 ## 0.4.1 (2026-10-29)
 
 - `onScreenText` is the video's main caption only: the subtitles, hook line, list item or step added in the edit,
