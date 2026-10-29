@@ -39,3 +39,35 @@ frame per scene and the words in each scene. Don't look at the record while labe
   `comments.<id>`. The scores are given twice: on every label, and on the labels not marked unsure.
 - A `product` matches when most of the reference's names are found in the analysis's, a name being found when either
   contains the other. Names are split on commas and "and", ignoring case. It is scored only when both sides sell.
+
+## Results, 0.4.0
+
+The release build on 23 public TikToks (20 videos of 6 to 95 s and 3 photo posts, 11 with TikTok subtitles, from app,
+study, skincare, fragrance, game and dance accounts), October 2026, default settings. A separate Claude agent wrote the
+reference labels, blind to the record, from the evidence the model gets. They aren't people's labels: read the table
+as agreement with a careful second reader. The posts and labels aren't in the repo.
+
+| Field | Labels | Agree | On labels marked sure |
+| --- | --- | --- | --- |
+| `topic` | 23 | 96% | 100% of 18 |
+| `format` | 23 | 78% | 100% of 9 |
+| `sells` | 23 | 65% | 100% of 10 |
+| `asksForComment` | 23 | 91% | 95% of 20 |
+| `product` (when both sell) | 5 | 100% | 100% of 5 |
+| a scene's `role` | 215 | 90% | 94% of 187 |
+| a scene's `footage` | 215 | 93% | 95% of 187 |
+| a scene's `showsProduct` (when both sell) | 70 | 76% | 75% of 67 |
+| a comment's `kind` | 254 | 70% | 74% of 212 |
+
+- **Noise.** Two runs of the same build differed by up to 8 points on `format` and 4 on `sells`, and the comments a
+  run reads change as a post gets new ones. A smaller difference between two builds is noise.
+- **Misses.** Most are on labels the reference marked unsure: for `sells`, several products ranked, a product named only
+  in the caption, a creator's own treatments. One clear miss: an app shown without its name, posted by the app's own
+  account with only an ad tag, stays `none` (0.54 against 0.37 for `software`).
+- **What this eval changed in 0.4.0,** on the same posts, from the first 0.4.0 build to the release:
+  - `sells` counts a post with a commercial tag or from the product's own account: 57% to 65–70% across two runs,
+    and 90% to 100% on labels marked sure.
+  - Comment kinds (`intent` only when the video sells, pushback is `negative`, off-topic is `other`): 63% to 70–75%.
+  - `showsProduct` counts the packaging, the screen and the product in use: 71% to 76% on the same 70 scenes.
+- **Reasoning effort.** On the first 24 posts, describe at `low` agreed as often as at `medium`, for 43% less per
+  video. `none` agreed less on `showsProduct` (44%), and in one video copied one scene's text into every scene.
