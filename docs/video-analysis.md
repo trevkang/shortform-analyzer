@@ -14,8 +14,9 @@ request. **Describe** fields are text, written by one describe request (Response
 are computed without a model. The decide request also reads what the describe request wrote.
 
 Both requests see each scene's frame and spoken words, plus what TikTok already gives, when the input is a TikTok post:
-the caption, hashtags, sticker text, topic labels, commercial tags (paid partnership, commission, ran as an ad,
-AI-generated), effects such as Green Screen, and the sound (its title, and whether it is the creator's own). The
+the account that posted it, the caption, hashtags, sticker text, topic labels, commercial tags (paid partnership,
+commission, promotional, ran as an ad), whether TikTok labels it AI-generated, effects such as Green Screen, and the
+sound (its title, and whether it is the creator's own). The
 requests can't hear the audio, so without the sound's title a lip-sync's lyrics would read as speech. All of this is
 input only: none of it is copied into a field, and the post itself is kept in `raw.post`.
 
@@ -93,13 +94,13 @@ Narration doesn't change the format: jokes over gameplay moments are still `high
 ### sells
 
 Whether the video pitches something: it names or links a specific product and recommends that the viewer get it.
-Showing or using a product isn't enough. Searches for videos that sell an app filter on it. This is read from the
-content; whether the pitch is paid, an affiliate deal or the account's own product comes from TikTok's commercial
-tags, not from here.
+Showing or using a product isn't enough, unless the post has one of TikTok's commercial tags or the product's own
+account posted it. Searches for videos that sell an app filter on it. Whether a pitch is paid, an affiliate deal or the
+account's own product isn't a field: the commercial tags and the account are in `raw.post`.
 
 | Value | Test | Example | Near miss → goes to |
 |---|---|---|---|
-| `none` | No product is named or linked and recommended. | a dance; study tips | A tips video ending "download my app" → `software` |
+| `none` | Nothing is pitched. | a dance; study tips | A tips video ending "download my app" → `software`; an app's own account using its app → `software` |
 | `software` | The buyer runs it. | an iOS app, a web tool, a browser extension, a game | Only playing a game → `none`; a Notion template → `digital_content` |
 | `physical_goods` | It is shipped. | a serum, a hoodie | Only using a lipstick in a makeup tutorial → `none`; a printable PDF planner → `digital_content` |
 | `service` | A person does work for the buyer. | a clinic, an agency, 1:1 coaching | A coaching app → `software` |

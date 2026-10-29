@@ -135,6 +135,23 @@ describe("the intro", () => {
     }
     expect(recordIntro({ media: "photos", duration: 3, scenes: 3, speech: "none" })).toMatch(/photo post: 3 photos/);
   });
+
+  it("says which account posted it, and keeps AI-generated out of the commercial tags", () => {
+    const post = { ...tiktokPost(), author: { platform: "tiktok", handle: "gizmo.ai", displayName: "gizmo" }, aiGenerated: true };
+    const text = recordIntro({ media: "video", duration: 4.5, scenes: 3, speech: "subtitles", post });
+    expect(text).toMatch(/^Account: @gizmo\.ai \("gizmo"\)\.$/m);
+    expect(text).toMatch(/^TikTok's commercial tags: paid partnership\.$/m);
+    expect(text).toMatch(/^TikTok labels it AI-generated\.$/m);
+    expect(recordIntro({ media: "video", duration: 4.5, scenes: 3, speech: "subtitles", post: tiktokPost() })).toMatch(/^Account: @creator\.$/m);
+  });
+});
+
+describe("the sells question", () => {
+  it("takes a commercial tag or the product's own account as a pitch, even when the product is only shown", () => {
+    const sells = recordQuestions().find((q) => q.name === "sells")!;
+    expect(sells.instructions).toMatch(/Showing or using a product isn't enough, unless the post has one of TikTok's commercial tags or the product's own account posted it\./);
+    expect(sells.instructions).not.toMatch(/not whether there is one/);
+  });
 });
 
 describe("comments", () => {

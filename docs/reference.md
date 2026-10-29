@@ -84,7 +84,7 @@ const b = await analyzeVideo("clip.mp4", { transcribe: true });
 | `decide(evidence, questions, options?)` | 1 | One Decisions request → `Decisions { video, scenes[], usage? }`. No fallbacks |
 | `TAXONOMY` | 2 | Every decide field: its values with their tests, examples and near misses, and its rules |
 | `checkQuestions(questions)` | 2 | Throws `questions:` unless the caller's questions are within the limits below |
-| `recordIntro(facts, described?)` | 2 | The first lines both requests read: the length, the scene count, whether the words are known, and what TikTok says about the post. Given the describe output, the decide request's also say what it wrote |
+| `recordIntro(facts, described?)` | 2 | The first lines both requests read: the length, the scene count, whether the words are known, and what TikTok says about the post, its account included. Given the describe output, the decide request's also say what it wrote |
 | `describeRequest(scenes)` | 2 | `{ name, instructions, schema }` for the describe request |
 | `parseDescribed(output, scenes)` | 2 | The describe output → `product`, `tags`, `description`, `formatDescription`, `onScreenText[]`, with the tag rules |
 | `recordQuestions({ questions })` | 2 | The decide questions: the record's, then `q_<name>` per caller question |
