@@ -16,7 +16,8 @@ def command(tool, vid, out, base):
     bin_ = lambda env: os.path.join(W, "env", env, "bin")
     py = f"{sys.executable} -I"
     if tool == "ours":
-        return f'node {REPO}/dist/cli.js analyze "{vid}" --out "{out}" --json > "{out}/analysis.json"'
+        # --transcribe: the other tools transcribe every video, and a file has no words without it
+        return f'node {REPO}/dist/cli.js analyze "{vid}" --out "{out}" --transcribe > "{out}/summary.txt"'
     if tool == "byjlw":
         return (f'cd "{out}" && {bin_("byjlw")}/video-analyzer "{vid}" --client openai_api --api-key "$OPENAI_API_KEY" '
                 f'--api-url {base} --model gpt-6-luna --output "{out}" --log-level WARNING')
