@@ -42,7 +42,7 @@ for (const dir of readdirSync(analysesDir).filter((d) => d.endsWith(".analysis")
       const values = rs.map((r) => r.scenes[i][f]);
       if (values.includes(undefined)) continue; // showsProduct, when a run says the video sells nothing
       const answers = rs.map((r) => r.decisions?.scenes?.[i]?.[ASKED[f] ?? f]);
-      items[f].push({ id: `${id} scene ${i + 1}`, values, answers, want: scenes[i]?.[f] ?? undefined, sure: sure(`scenes[${i}].${f}`) && sure(`scenes[${i}]`) });
+      items[f].push({ id: `${id} scene ${i + 1}`, values, answers, want: scenes[i]?.[f] ?? undefined, sure: sure(`scenes[${i}].${f}`) && !unsure.includes(`scenes[${i}]`) });
     }
   }
 }

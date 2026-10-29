@@ -135,6 +135,7 @@ describe("eval/stability.mjs", () => {
     expect(by.shot).toMatchObject({ n: 2, allAgree: 0.5, swaps: [{ a: "app", b: "card", n: 2 }] });
     expect(by.shot.pairwise).toBeCloseTo(2 / 3);
     expect(by.text).toMatchObject({ n: 2, allAgree: 0.5, majority: 0.5, nSure: 1, majoritySure: 1 });
+    expect(by.voice).toMatchObject({ nSure: 2 }); // a mark on one field of a scene leaves its other fields sure
     expect(by.showsProduct).toMatchObject({ n: 0 }); // every run says the video sells nothing
     expect(by.footage).toMatchObject({ close: 0.5, closePairs: [{ a: "graphics", b: "screen", n: 1 }] }); // top two within 0.2
     expect(by.topic).toMatchObject({ close: 0, closePairs: [] });
