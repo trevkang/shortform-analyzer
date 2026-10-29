@@ -1,12 +1,15 @@
 # Benchmark
 
 Runs shortform-analyzer and three open-source tools on the same videos with the same model
-(`gpt-6-luna`), and measures time, CPU, peak memory, OpenAI requests, tokens and cost. The README's
-[benchmark](../README.md#benchmark) table comes from [`results/2026-10.json`](results/2026-10.json).
+(`gpt-6-luna`), and measures time, CPU, peak memory, OpenAI requests, tokens and cost.
+[`results/2026-10.json`](results/2026-10.json) is the October 2026 run, made on 0.3.1: one `whisper-1` transcription
+and one Decisions request per video. From 0.4.0 a file is transcribed only with `--transcribe`, which `run.py` passes,
+and a describe request runs before the Decisions request. Run it again for 0.4 numbers; the README's
+[speed and cost](../README.md#speed-and-cost) come from real TikToks through the post URL instead.
 
 | Tool | Version | What it does before the model |
 | --- | --- | --- |
-| shortform-analyzer | this repo (`dist/`) | Scenes, one frame per scene, `whisper-1`, then one Decisions request |
+| shortform-analyzer | this repo (`dist/`) | Scenes, one frame per scene, `whisper-1` (`--transcribe`), then one Responses and one Decisions request |
 | [claude-video-vision](https://github.com/jordanrendric/claude-video-vision) | `4a4f990` (1.4.0) | Frames at 2 fps (1 fps from 60 s), `whisper-1`, over its MCP tool `video_watch` |
 | [claude-real-video](https://github.com/HUANGCHIHHUNGLeo/claude-real-video) | `ab4b9b2` | Scene-change frames, deduplicated; local Whisper `base` |
 | [video-analyzer](https://github.com/byjlw/video-analyzer) | `2b095fa` | Key frames, one chat request per frame, then one more; local Whisper `medium` |

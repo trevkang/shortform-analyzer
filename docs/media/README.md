@@ -1,5 +1,10 @@
 # How-it-works video
 
+> [!NOTE]
+> The animation shows 0.3's labels (beats, hold, sections), which 0.4.0 replaced with the record. It is out of the
+> README until it is rendered again from a 0.4 analysis; `prep.mjs` and `how-it-works.src.html` still read 0.3's
+> `analysis.json`.
+
 `how-it-works.gif` (README) and `how-it-works.mp4` show a real run of `analyzeVideo` on
 [Zach King's "a message to all AI"](https://www.tiktok.com/@zachking/video/7655004069190192398)
 (27.9 s, 17 scenes). Every time, word and label on screen comes from that run. The video belongs
