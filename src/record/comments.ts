@@ -10,6 +10,7 @@ type ForComments = {
   sells: Sells;
   asksForComment: boolean;
   product: string;
+  description: string;
   scenes: { role: Role; spoken: string; onScreenText: string }[];
 };
 
@@ -24,7 +25,7 @@ export function commentList(page: Apinoa.CommentPage | undefined, post?: Post): 
     .map((c) => ({ id: c.id, text: c.text, likes: c.metrics?.likes ?? 0 }));
 }
 
-/** The comments as evidence, one item each, after what the video pitches and what its `cta` scenes say and show. */
+/** The comments as evidence, one item each, after what the video is about, what it pitches and what its `cta` scenes say and show. */
 export function commentEvidence(comments: CommentText[], record: ForComments): Evidence {
   const cta = record.scenes.filter((s) => s.role === "cta");
   const said = cta.map((s) => s.spoken).filter(Boolean).join(" ");
@@ -34,15 +35,16 @@ export function commentEvidence(comments: CommentText[], record: ForComments): E
     : `The video's call to action${said ? ` says: "${said}"` : ""}${said && shown ? " and" : ""}${shown ? ` shows: "${shown}"` : ""}.`;
   const intro = [
     "Comments on a TikTok video, one per item, in the order TikTok shows them.",
+    ...(record.description.trim() ? [`The video: ${record.description.replace(/\s+/g, " ").trim()}`] : []),
     record.product ? `The product the video pitches: "${record.product}".` : "The video pitches no product by name.",
     ask,
   ].join("\n");
   return { intro, items: comments.map((c, i) => ({ type: "text", text: `Comment ${i + 1}: "${c.text}"` })), scenes: comments.length };
 }
 
-/** One `kind` per comment; `cta_reply` only when the video asks for a comment. */
-export function commentQuestions(record: { asksForComment: boolean }): DecisionQuestion[] {
-  const kinds = COMMENT_KINDS.filter((k) => k !== "cta_reply" || record.asksForComment);
+/** One `kind` per comment; `cta_reply` only when the video asks for a comment, `intent` only when it sells something. */
+export function commentQuestions(record: { asksForComment: boolean; sells: Sells }): DecisionQuestion[] {
+  const kinds = COMMENT_KINDS.filter((k) => (k !== "cta_reply" || record.asksForComment) && (k !== "intent" || record.sells !== "none"));
   return [{
     type: "choice", name: "kind", scope: "scene",
     instructions: "What comment {scene} does. When more than one value fits, the first in the list wins.",

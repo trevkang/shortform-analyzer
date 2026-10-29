@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { analyzeVideo } from "../src/index.js";
 import {
-  alignWords, checkQuestions, commentList, commentQuestions, cueWords, describeRequest, dropHallucinations, parseComments,
+  alignWords, checkQuestions, commentEvidence, commentList, commentQuestions, cueWords, describeRequest, dropHallucinations, parseComments,
   parseDescribed, parseRecord, parseVtt, recordIntro, recordQuestions, type DecisionAnswer, type Decisions, type Span,
 } from "../src/primitives.js";
 import { expandQuestions } from "../src/blocks/decide.js";
@@ -161,13 +161,18 @@ describe("comments", () => {
     { platform: "tiktok", id: "3", postId: "p", text: "thanks all", author: { platform: "tiktok", id: "u9" }, byAuthor: true, replies: [] },
     { platform: "tiktok", id: "4", postId: "p", text: "🔥🔥", author: { platform: "tiktok", id: "u2" }, replies: [] },
   ] as any[];
+  it("offers intent only when the video sells something, and tells what the video is about", () => {
+    expect((commentQuestions({ asksForComment: true, sells: "none" })[0] as any).choices.map((c: any) => c.value)).toEqual(["cta_reply", "negative", "positive", "other"]);
+    const record = { sells: "software" as const, asksForComment: false, product: "StudyFetch", description: "An app turns a lecture into notes.", scenes: [] };
+    expect(commentEvidence([{ id: "1", text: "2x speed bro", likes: 3 }], record).intro).toMatch(/^The video: An app turns a lecture into notes\.$/m);
+  });
   it("keeps the comments in order without the creator's own", () => {
     const list = commentList({ platform: "tiktok", items }, tiktokPost());
     expect(list).toEqual([{ id: "1", text: "what's the app called?", likes: 12 }, { id: "4", text: "🔥🔥", likes: 0 }]);
   });
   it("offers cta_reply only when the video asks for a comment, and falls back to other", () => {
-    expect((commentQuestions({ asksForComment: false })[0] as any).choices.map((c: any) => c.value)).toEqual(["intent", "negative", "positive", "other"]);
-    expect((commentQuestions({ asksForComment: true })[0] as any).choices[0].value).toBe("cta_reply");
+    expect((commentQuestions({ asksForComment: false, sells: "software" })[0] as any).choices.map((c: any) => c.value)).toEqual(["intent", "negative", "positive", "other"]);
+    expect((commentQuestions({ asksForComment: true, sells: "software" })[0] as any).choices[0].value).toBe("cta_reply");
     const list = [{ id: "1", text: "a", likes: 1 }, { id: "2", text: "b", likes: 0 }];
     expect(parseComments({ video: {}, scenes: [{ kind: { choice: "intent" } }] }, list)).toEqual([
       { id: "1", text: "a", likes: 1, kind: "intent" }, { id: "2", text: "b", likes: 0, kind: "other" },
