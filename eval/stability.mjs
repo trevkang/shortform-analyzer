@@ -1,6 +1,8 @@
-// How steady each field is over the runs eval/repeat.mjs made of the same decide request: per field, how often every run
-// agrees, how often two runs agree, and the values that trade places; with labels (the format in eval/README.md), each
-// run's accuracy and the majority's. A field whose answer keeps changing on the same evidence has values that overlap.
+// How steady each field is over the runs eval/repeat.mjs made of the same video: per field, how often every run agrees,
+// how often two runs agree, the values that trade places, and how often the two most probable values were within 0.2
+// of each other (a near tie, which a small change in the evidence turns over); with labels (the format in
+// eval/README.md), each run's accuracy and the majority's. A field that keeps changing, or keeps nearly tying between
+// the same two values, has values that overlap.
 // Usage: node eval/stability.mjs <analyses dir> [labels dir] [--json]
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -14,7 +16,9 @@ if (!analysesDir) {
 
 const VIDEO = ["topic", "format", "sells", "asksForComment"];
 const SCENE = ["role", "footage", "showsProduct", ...CANDIDATE_FIELDS];
-const items = Object.fromEntries([...VIDEO, ...SCENE].map((f) => [f, []])); // field → [{ id, values (one per run), want, sure }]
+const ASKED = { asksForComment: "asks_for_comment", showsProduct: "shows_product" }; // the decide question, where its name differs
+const CLOSE = 0.2;
+const items = Object.fromEntries([...VIDEO, ...SCENE].map((f) => [f, []])); // field → [{ id, values and answers (one per run), want, sure }]
 let videos = 0;
 let runs = Infinity;
 
@@ -29,7 +33,7 @@ for (const dir of readdirSync(analysesDir).filter((d) => d.endsWith(".analysis")
   const sure = (key) => !unsure.some((u) => u === key || u.startsWith(`${key}.`) || u.startsWith(`${key}[`));
   videos++;
   runs = Math.min(runs, rs.length);
-  for (const f of VIDEO) items[f].push({ id, values: rs.map((r) => r[f]), want: want?.[f], sure: sure(f) });
+  for (const f of VIDEO) items[f].push({ id, values: rs.map((r) => r[f]), answers: rs.map((r) => r.decisions?.video?.[ASKED[f] ?? f]), want: want?.[f], sure: sure(f) });
   const n = rs[0].scenes.length;
   const scenes = want?.scenes?.length === n ? want.scenes : []; // a label set for another scene split scores no scene
   for (let i = 0; i < n; i++) {
@@ -37,7 +41,8 @@ for (const dir of readdirSync(analysesDir).filter((d) => d.endsWith(".analysis")
       if (f === "role" && i === 0) continue; // asked from scene 2: scene 1 is the hook by rule
       const values = rs.map((r) => r.scenes[i][f]);
       if (values.includes(undefined)) continue; // showsProduct, when a run says the video sells nothing
-      items[f].push({ id: `${id} scene ${i + 1}`, values, want: scenes[i]?.[f] ?? undefined, sure: sure(`scenes[${i}].${f}`) && sure(`scenes[${i}]`) });
+      const answers = rs.map((r) => r.decisions?.scenes?.[i]?.[ASKED[f] ?? f]);
+      items[f].push({ id: `${id} scene ${i + 1}`, values, answers, want: scenes[i]?.[f] ?? undefined, sure: sure(`scenes[${i}].${f}`) && sure(`scenes[${i}]`) });
     }
   }
 }
@@ -51,6 +56,14 @@ function majority(values) {
   for (const [v, k] of votes) if (got === undefined || k > votes.get(got)) got = v;
   return { got, votes: Object.fromEntries(votes) };
 }
+
+/** How far the most probable value is ahead of the next, and the two; a yes/no answer's yes against its no. */
+function lead(answer) {
+  if (typeof answer?.probability === "number") return { by: Math.abs(2 * answer.probability - 1), pair: ["false", "true"] };
+  const ranked = Object.entries(answer?.probs ?? {}).sort((x, y) => y[1] - x[1]);
+  return ranked.length < 2 ? undefined : { by: ranked[0][1] - ranked[1][1], pair: [ranked[0][0], ranked[1][0]].sort() };
+}
+const top = (counts) => [...counts].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([key, n]) => ({ a: key.split("\n")[0], b: key.split("\n")[1], n }));
 
 const misses = [];
 const fields = Object.entries(items).map(([field, list]) => {
@@ -71,6 +84,9 @@ const fields = Object.entries(items).map(([field, list]) => {
       }
     }
   }
+  const leads = list.flatMap((x) => x.answers.map(lead).filter(Boolean));
+  const ties = new Map();
+  for (const l of leads.filter((l) => l.by < CLOSE)) ties.set(l.pair.join("\n"), (ties.get(l.pair.join("\n")) ?? 0) + 1);
   const labelled = list.filter((x) => x.want !== undefined);
   const sure = labelled.filter((x) => x.sure);
   const right = (xs) => xs.filter((x) => majority(x.values).got === x.want).length;
@@ -83,7 +99,9 @@ const fields = Object.entries(items).map(([field, list]) => {
     field, n,
     allAgree: n ? list.filter((x) => x.values.every((v) => v === x.values[0])).length / n : null,
     pairwise: pairs ? agree / pairs : null,
-    swaps: [...swaps].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([key, count]) => ({ a: key.split("\n")[0], b: key.split("\n")[1], n: count })),
+    swaps: top(swaps),
+    close: leads.length ? leads.filter((l) => l.by < CLOSE).length / leads.length : null,
+    closePairs: top(ties),
     accuracy: perRun.length ? { mean: mean(perRun), min: Math.min(...perRun), max: Math.max(...perRun) } : null,
     majority: labelled.length ? right(labelled) / labelled.length : null,
     nSure: sure.length,
@@ -96,12 +114,13 @@ if (process.argv.includes("--json")) {
 } else {
   const pct = (x) => (x === null ? "-" : `${(x * 100).toFixed(0)}%`);
   console.log(`${videos} videos, ${videos ? runs : 0} runs each\n`);
-  console.log("field            n  all agree  two agree  accuracy: runs (min-max)  majority  (sure: n, majority)  values that trade places");
+  console.log("field            n  all agree  two agree  near ties  accuracy: runs (min-max)  majority  (sure: n, majority)  values that trade places | nearly tie");
   for (const f of fields) {
     const acc = f.accuracy ? `${pct(f.accuracy.mean)} (${pct(f.accuracy.min)}-${pct(f.accuracy.max)})` : "-";
-    console.log(`${f.field.padEnd(14)} ${String(f.n).padStart(3)}  ${pct(f.allAgree).padStart(9)}  ${pct(f.pairwise).padStart(9)}  ` +
+    const pairs = (xs) => xs.map((s) => `${s.a}↔${s.b} ${s.n}`).join(", ");
+    console.log(`${f.field.padEnd(14)} ${String(f.n).padStart(3)}  ${pct(f.allAgree).padStart(9)}  ${pct(f.pairwise).padStart(9)}  ${pct(f.close).padStart(9)}  ` +
       `${acc.padStart(24)}  ${pct(f.majority).padStart(8)}  ${`(${f.nSure}, ${pct(f.majoritySure)})`.padStart(19)}  ` +
-      f.swaps.map((s) => `${s.a}↔${s.b} ${s.n}`).join(", "));
+      `${pairs(f.swaps)} | ${pairs(f.closePairs)}`);
   }
   if (misses.length) {
     console.log("\nMisses of the majority (reference → majority, votes):");

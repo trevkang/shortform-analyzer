@@ -1,41 +1,47 @@
-// The decide request of each analysis asked again, run after run, with the candidate facets (candidates.mjs) in it.
-// The evidence is the analysis's own, built as src/pipeline/analyze.ts builds it, so what changes between runs is the
-// model. Writes repeats.json next to each analysis.json (the full one, with frames and raw), for eval/stability.mjs.
+// Each analysis's describe and decide requests asked again, run after run, with the candidate facets (candidates.mjs) in
+// the decide request. Each run describes the analysis's own frames and words again and decides on what it wrote, as
+// src/pipeline/analyze.ts does: OpenAI's Decisions answers the same evidence the same way every time, so runs differ
+// where two analyses of the same video would. Writes repeats.json next to each analysis.json (the full one, with frames
+// and raw), for eval/stability.mjs.
 // Usage: node eval/repeat.mjs <analyses dir> [--runs 5]   (OPENAI_API_KEY)
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { decide, DECISIONS_MODEL, parseDescribed, parseRecord, recordIntro, recordQuestions, sceneEvidence } from "../dist/primitives.js";
-import { decisionsCost, PRICES } from "../dist/prices.js";
+import {
+  decide, DECISIONS_MODEL, describe, DESCRIBE_MODEL, describeRequest, parseDescribed, parseRecord, recordIntro, recordQuestions, sceneEvidence,
+} from "../dist/primitives.js";
+import { decisionsCost, PRICES, responsesCost } from "../dist/prices.js";
 import { CANDIDATE_FIELDS, CANDIDATE_QUESTIONS } from "./candidates.mjs";
 
 const spansOf = (a) => a.scenes.map((s) => ({ start: s.start, end: s.end, ...(s.cut === false ? { cut: false } : {}) }));
 
-/** The evidence the pipeline's decide request read, from a full analysis.json. */
-export function decideEvidence(a) {
+/** The evidence of a full analysis.json as the pipeline builds it: describe's without `described`, decide's with it. */
+function evidence(a, described) {
   const spans = spansOf(a);
   const frames = a.scenes.map((s) => Buffer.from(s.frame.slice(s.frame.indexOf(",") + 1), "base64"));
   const facts = { media: a.media, duration: a.duration, scenes: spans.length, speech: a.speech, ...(a.raw.post ? { post: a.raw.post } : {}) };
   return sceneEvidence(spans, frames, a.scenes.map((s) => s.spoken), {
-    duration: a.duration, intro: recordIntro(facts, parseDescribed(a.raw.describe, spans.length)), words: a.speech,
-    ...(a.media === "photos" ? { photos: true } : {}),
+    duration: a.duration, intro: recordIntro(facts, described), words: a.speech, ...(a.media === "photos" ? { photos: true } : {}),
   });
 }
 
-/** `runs` decide requests over the same evidence, at once: each run's decide fields, the candidates per scene, and its answers. */
+/** The evidence the analysis's own decide request read. */
+export const decideEvidence = (a) => evidence(a, parseDescribed(a.raw.describe, a.scenes.length));
+
+/** `runs` runs at once, each a describe and a decide request: its decide fields, the candidates per scene, what describe wrote and the answers. */
 export async function repeat(a, { runs = 5, ...openai } = {}) {
   if (!a.raw?.describe || !a.scenes.every((s) => s.frame)) throw new Error("repeat: needs the full analysis.json, with frames and raw");
-  const evidence = decideEvidence(a);
   const spans = spansOf(a);
-  const product = parseDescribed(a.raw.describe, spans.length).product;
   return Promise.all(Array.from({ length: runs }, async () => {
-    const decisions = await decide(evidence, [...recordQuestions(), ...CANDIDATE_QUESTIONS], openai);
-    const r = parseRecord(decisions, { spans, product });
+    const written = await describe(evidence(a), describeRequest(spans.length), openai);
+    const described = parseDescribed(written.output, spans.length);
+    const decisions = await decide(evidence(a, described), [...recordQuestions(), ...CANDIDATE_QUESTIONS], openai);
+    const r = parseRecord(decisions, { spans, product: described.product });
     return {
       topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment,
       scenes: r.scenes.map((s, i) => ({ ...s, ...Object.fromEntries(CANDIDATE_FIELDS.map((f) => [f, decisions.scenes[i]?.[f]?.choice ?? null])) })),
-      decisions,
+      describe: written.output, describeUsage: written.usage, decisions,
     };
   }));
 }
@@ -53,7 +59,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
     if (existsSync(file) && JSON.parse(readFileSync(file, "utf8")).runs.length >= runs) continue;
     try {
       const made = await repeat(JSON.parse(readFileSync(join(dir, name, "analysis.json"), "utf8")), { runs });
-      usd += made.reduce((sum, r) => sum + decisionsCost(PRICES, DECISIONS_MODEL, r.decisions.usage), 0);
+      usd += made.reduce((sum, r) => sum + responsesCost(PRICES, DESCRIBE_MODEL, r.describeUsage) + decisionsCost(PRICES, DECISIONS_MODEL, r.decisions.usage), 0);
       writeFileSync(file, JSON.stringify({ model: DECISIONS_MODEL, runs: made }));
       console.log(`${name}: ${runs} runs, $${usd.toFixed(4)} so far`);
     } catch (e) {

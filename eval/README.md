@@ -42,11 +42,13 @@ frame per scene and the words in each scene. Don't look at the record while labe
 
 ## How steady each field is
 
-`repeat.mjs` asks each analysis's decide request again, `--runs` times, with the candidate scene facets of
-[`candidates.mjs`](candidates.mjs) in the same request: `voice`, `layout`, `shot` and `text`, which aren't in the record.
-The evidence is the analysis's own, so what changes between runs is the model. `stability.mjs` reports per field how
-often every run agrees, how often two runs agree and the values that trade places, and with labels each run's accuracy
-and the majority's. A field whose answer keeps changing on the same evidence has values that overlap.
+`repeat.mjs` analyses each video again, `--runs` times, from the analysis's own frames and words: each run describes
+it again and asks the decide request with the candidate scene facets of [`candidates.mjs`](candidates.mjs) in it
+(`voice`, `layout`, `shot` and `text`, which aren't in the record). Decide alone wouldn't move: OpenAI's Decisions
+answered 5 runs of the same evidence identically, to the probability, on all 36 posts tried. `stability.mjs` reports per
+field how often every run agrees, how often two runs agree, the values that trade places and how often the two most
+probable values were within 0.2 (a near tie), and with labels each run's accuracy and the majority's. A field that keeps
+changing, or keeps nearly tying between the same two values, has values that overlap.
 
 ```bash
 node eval/repeat.mjs out/ --runs 5       # OPENAI_API_KEY; writes out/<id>.analysis/repeats.json

@@ -8,7 +8,7 @@ import { expandQuestions } from "../src/blocks/decide.js";
 import { MAX_SCENES } from "../src/blocks/scenes.js";
 import { analyzeVideo } from "../src/index.js";
 import { recordQuestions } from "../src/record/questions.js";
-import { fake, hasFfmpeg, KEYS, makeCuts, tmp } from "./helpers.js";
+import { fake, hasFfmpeg, KEYS, makeCuts, readText, tmp } from "./helpers.js";
 
 const evalModule = (name: string) => import(String(new URL(`../eval/${name}`, import.meta.url)));
 
@@ -59,19 +59,20 @@ describe("eval/score.mjs", () => {
 });
 
 describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
-  it("asks the analysis's own decide request again, once per run, with the candidate facets of every scene in it", async () => {
+  it("describes the video again and asks the decide request again, once per run, with the candidate facets of every scene in it", async () => {
     const f = fake();
     const first = await analyzeVideo(makeCuts(true), { ...KEYS, fetch: f.fetchFn });
     if (!first.ok) throw new Error(first.error);
-    const sent = f.calls.find((c) => c.kind === "decide")!.body;
+    const sent = (kind: string) => f.calls.find((c) => c.kind === kind)!.body;
     const { repeat } = await evalModule("repeat.mjs");
     const g = fake();
     const runs = await repeat(JSON.parse(JSON.stringify(first)), { runs: 2, ...KEYS, fetch: g.fetchFn });
-    expect(g.kinds()).toEqual(["decide", "decide"]);
+    expect(g.kinds().sort()).toEqual(["decide", "decide", "describe", "describe"]);
     const candidate = (q: { name: string }) => /^(voice|layout|shot|text)_\d+$/.test(q.name);
-    for (const { body } of g.calls) {
-      expect(body.input).toEqual(sent.input);
-      expect(body.questions.filter((q: { name: string }) => !candidate(q))).toEqual(sent.questions);
+    for (const { body } of g.calls.filter((c) => c.kind === "describe")) expect(body).toEqual(sent("describe"));
+    for (const { body } of g.calls.filter((c) => c.kind === "decide")) {
+      expect(body.input).toEqual(sent("decide").input);
+      expect(body.questions.filter((q: { name: string }) => !candidate(q))).toEqual(sent("decide").questions);
       expect(body.questions.filter(candidate)).toHaveLength(4 * first.scenes.length);
     }
     expect(runs).toHaveLength(2);
@@ -79,6 +80,14 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
     // the fake answers a question it doesn't know with its first value
     expect(runs[0].scenes[1]).toMatchObject({ role: first.scenes[1].role, footage: first.scenes[1].footage, voice: "in_frame", layout: "cutout", shot: "group", text: "captions" });
     expect(runs[0].decisions.scenes[1].voice.probs.in_frame).toBe(0.7);
+
+    // each run decides on what its own describe wrote
+    let n = 0;
+    const h = fake({ describeOutput: (scenes) => ({ product: "", tags: [], description: `Description ${++n}.`, formatDescription: "f", onScreenText: Array(scenes).fill("") }) });
+    const again = await repeat(JSON.parse(JSON.stringify(first)), { runs: 2, ...KEYS, fetch: h.fetchFn });
+    const read = h.calls.filter((c) => c.kind === "decide").map((c) => readText(c.body).match(/Description \d/)![0]);
+    expect(read.sort()).toEqual(["Description 1", "Description 2"]);
+    expect(again.map((r: { describe: { description: string } }) => r.describe.description).sort()).toEqual(["Description 1.", "Description 2."]);
   });
 });
 
@@ -95,7 +104,13 @@ describe("eval/stability.mjs", () => {
   const run = (format: string, second: object = {}) => ({
     topic: "tech", format, sells: "none", asksForComment: false, scenes: [scene(opening), scene(second)],
   });
-  const runs = [run("review"), run("tutorial", { shot: "card" }), run("review", { text: "message" })];
+  // the first run's answers with their probabilities: footage is a near tie in scene 2, not in scene 1
+  const probs = (choice: string, p: Record<string, number>) => ({ choice, probs: p });
+  const decisions = {
+    video: { topic: probs("tech", { tech: 0.9, education: 0.1 }) },
+    scenes: [{ footage: probs("camera_face", { camera_face: 0.9, screen: 0.1 }) }, { footage: probs("screen", { screen: 0.5, graphics: 0.45, camera_face: 0.05 }) }],
+  };
+  const runs = [{ ...run("review"), decisions }, run("tutorial", { shot: "card" }), run("review", { text: "message" })];
   const stability = (root: string, ...args: string[]) =>
     JSON.parse(execFileSync(process.execPath, ["eval/stability.mjs", join(root, "out"), ...args, "--json"], { encoding: "utf8" }));
 
@@ -121,6 +136,9 @@ describe("eval/stability.mjs", () => {
     expect(by.shot.pairwise).toBeCloseTo(2 / 3);
     expect(by.text).toMatchObject({ n: 2, allAgree: 0.5, majority: 0.5, nSure: 1, majoritySure: 1 });
     expect(by.showsProduct).toMatchObject({ n: 0 }); // every run says the video sells nothing
+    expect(by.footage).toMatchObject({ close: 0.5, closePairs: [{ a: "graphics", b: "screen", n: 1 }] }); // top two within 0.2
+    expect(by.topic).toMatchObject({ close: 0, closePairs: [] });
+    expect(by.format).toMatchObject({ close: null }); // no probabilities kept
     expect(out.misses).toEqual([{ id: "1 scene 2", field: "text", want: "message", got: "other", votes: { other: 2, message: 1 } }]);
   });
 
