@@ -7,6 +7,7 @@ const clip = (s: string, n = 140) => {
   return line.length > n ? `${line.slice(0, n)}...` : line;
 };
 const SPEECH = { subtitles: "TikTok's subtitles", transcription: "an automatic transcription", none: "not known" };
+const FACETS = { splitScreen: "split screen", overlay: "overlay", textBar: "text bar", captions: "captions", message: "message" } as const;
 
 /** Consecutive scenes with the same role, as one run. */
 function runs(scenes: Scene[]): Scene[][] {
@@ -21,12 +22,14 @@ function runs(scenes: Scene[]): Scene[][] {
 
 function runLine(run: Scene[]): string {
   const footage = [...new Set(run.map((s) => words(s.footage)))].join(", ");
+  const subject = [...new Set(run.flatMap((s) => (s.subject ? [words(s.subject)] : [])))].join(", ");
+  const facets = Object.entries(FACETS).filter(([f]) => run.some((s) => s[f as keyof typeof FACETS])).map(([, w]) => w).join(", ");
   const product = run.some((s) => s.showsProduct) ? ", product shown" : "";
   const said = run.map((s) => s.spoken).filter(Boolean).join(" ");
   const shown = run.map((s) => s.onScreenText).filter(Boolean).join(" / ");
   const start = run[0].start.toFixed(1);
   const end = run.at(-1)!.end.toFixed(1);
-  return `${run[0].role} ${start}-${end} s, ${run.length} scene${run.length > 1 ? "s" : ""} (${footage}${product})` +
+  return `${run[0].role} ${start}-${end} s, ${run.length} scene${run.length > 1 ? "s" : ""} (${footage}${subject && `; ${subject}`}${facets && `; ${facets}`}${product})` +
     `${said ? `: "${clip(said)}"` : ""}${shown ? ` [on screen: "${clip(shown, 80)}"]` : ""}`;
 }
 

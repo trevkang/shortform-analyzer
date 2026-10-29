@@ -1,9 +1,9 @@
 // The decide questions: the record's (made from TAXONOMY), then the caller's, in the same request.
 import type { DecisionQuestion, Question } from "../types.js";
-import { FOOTAGE, FORMATS, ROLES, SELLS, TAXONOMY, TOPICS, valueText } from "./taxonomy.js";
+import { FOOTAGE, FORMATS, ROLES, SELLS, SUBJECTS, TAXONOMY, TOPICS, valueText } from "./taxonomy.js";
 
 export const MAX_QUESTIONS = 20;
-export const MAX_SCENE_QUESTIONS = 6; // 4 + 3 × 40 − 1 record questions, plus 14 + 6 × 40 of the caller's, stay under 400
+export const MAX_SCENE_QUESTIONS = 6; // 4 + 9 × 40 − 1 record questions fit one request of 400; 14 + 6 × 40 of the caller's take a second
 export const MAX_CHOICES = 20;
 export const QUESTION_PREFIX = "q_";
 const NAME = /^[a-z0-9_]+$/;
@@ -32,12 +32,12 @@ export function checkQuestions(questions: Question[] = []): void {
   }
 }
 
-const choices = (field: "topic" | "format" | "sells" | "role" | "footage", values: readonly string[]) =>
+const choices = (field: "topic" | "format" | "sells" | "role" | "footage" | "subject", values: readonly string[]) =>
   values.map((value) => ({ value, description: valueText(field, value) }));
 
 const rules = (field: keyof typeof TAXONOMY) => TAXONOMY[field].rules.join(" ");
 
-/** The record's own questions: 4 about the video, 3 per scene (`role` from the second scene: the first is the hook). */
+/** The record's own questions: 4 about the video, 9 per scene (`role` from the second scene: the first is the hook). */
 export const RECORD_QUESTIONS: DecisionQuestion[] = [
   {
     type: "choice", name: "topic", choices: choices("topic", TOPICS),
@@ -69,6 +69,38 @@ export const RECORD_QUESTIONS: DecisionQuestion[] = [
     type: "predicate", name: "shows_product", scope: "scene",
     instructions: "Is the product the video sells in scene {scene}: seen (the item, its packaging or its screen, also while it is used or applied) " +
       "or named? No when the video sells nothing.",
+  },
+  {
+    type: "choice", name: "subject", scope: "scene", choices: choices("subject", SUBJECTS),
+    instructions: `What fills most of the frame of scene {scene}. ${rules("subject")}`,
+  },
+  {
+    type: "predicate", name: "split_screen", scope: "scene",
+    instructions: "Is the frame of scene {scene} split into panels, each with its own picture? Yes for a duet side by side; " +
+      "a reaction stacked over the original; before and after side by side; gameplay on top and a face below.",
+  },
+  {
+    type: "predicate", name: "overlay", scope: "scene",
+    instructions: "Does a second picture sit on top of the main one in scene {scene}: a video, photo or screenshot in a window, " +
+      "or a person cut out over it? Yes for a facecam over gameplay; a reaction window in a corner; a green screen; a screenshot laid over a talking head.",
+  },
+  {
+    type: "predicate", name: "text_bar", scope: "scene",
+    instructions: "Is the picture of scene {scene} shrunk to make room for a solid bar above or below it, with text in the bar? " +
+      "Yes for a meme clip under a white bar of text; a podcast clip under a headline bar.",
+  },
+  {
+    type: "predicate", name: "captions", scope: "scene",
+    instructions: "Are the words heard in scene {scene} written on screen as subtitles? Yes for subtitles under a talking head; " +
+      "word-by-word captions of a voiceover; a song's lyrics on screen.",
+  },
+  // Without its last sentence, a line kept on screen was a message only in the scene it first showed in: of 70 message
+  // scenes right after another, 32 were found, and 60 with it (eval/README.md).
+  {
+    type: "predicate", name: "message", scope: "scene",
+    instructions: "Does scene {scene} show words its maker wrote for the viewer, other than the words heard: a hook, a title, " +
+      'a statement, a joke, a POV, a question, a list or a line of a story? Yes for "POV: you finally found an app that works"; ' +
+      '"3 mistakes everyone makes"; a headline bar over a podcast clip. Also when the same words stay on screen from the scene before.',
   },
 ];
 

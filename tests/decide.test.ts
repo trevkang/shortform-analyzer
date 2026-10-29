@@ -31,12 +31,23 @@ group("decide (Examples 14–16)", () => {
     expect(f.bodies[0].model).toBe("gpt-6-luna");
   });
 
-  it("Example 15: more than 400 questions after expanding throws before any request", async () => {
+  it("Example 15: more than 400 questions after expanding go out in requests of at most 400, each with the whole evidence", async () => {
     const forty = Array.from({ length: 40 }, (_, i) => ({ start: i, end: i + 1 }));
     const big = sceneEvidence(forty, forty.map(() => jpeg), forty.map(() => ""), { duration: 40 });
     const eleven = Array.from({ length: 11 }, (_, i) => ({ ...logo, name: `logo${i}` }));
+    const f = decisionsFetch((b) => ({ answers: b.questions.map((q: any) => ({ type: "predicate", name: q.name, probability: 0.9 })), usage: { input_tokens: 1000 } }));
+    const d = await decide(big, eleven, { ...KEYS, fetch: f.fetchFn });
+    expect(f.bodies.map((b) => b.questions.length)).toEqual([400, 40]);
+    expect(f.bodies[1].input).toEqual(f.bodies[0].input);
+    expect(d.scenes.every((s) => Object.keys(s).length === 11)).toBe(true);
+    expect(d.scenes[39].logo10?.probability).toBe(0.9);
+    expect(d.usage).toEqual({ inputTokens: 2000 });
+    expect(d.requests).toBe(2);
+  });
+
+  it("no question at all throws before any request", async () => {
     const f = decisionsFetch(() => ({}));
-    await expect(decide(big, eleven, { ...KEYS, fetch: f.fetchFn })).rejects.toThrow(/^decide: .*400/);
+    await expect(decide(evidence, [], { ...KEYS, fetch: f.fetchFn })).rejects.toThrow(/^decide: 0 questions/);
     expect(f.bodies).toEqual([]);
   });
 

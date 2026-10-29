@@ -6,7 +6,6 @@
 // Usage: node eval/stability.mjs <analyses dir> [labels dir] [--json]
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { CANDIDATE_FIELDS } from "./candidates.mjs";
 
 const [analysesDir, labelsDir] = process.argv.slice(2).filter((a) => !a.startsWith("--"));
 if (!analysesDir) {
@@ -15,8 +14,9 @@ if (!analysesDir) {
 }
 
 const VIDEO = ["topic", "format", "sells", "asksForComment"];
-const SCENE = ["role", "footage", "showsProduct", ...Object.keys(CANDIDATE_FIELDS)];
-const ASKED = { asksForComment: "asks_for_comment", showsProduct: "shows_product", ...CANDIDATE_FIELDS }; // the decide question, where its name differs
+const SCENE = ["role", "footage", "showsProduct", "subject", "splitScreen", "overlay", "textBar", "captions", "message"];
+// the decide question, where its name differs
+const ASKED = { asksForComment: "asks_for_comment", showsProduct: "shows_product", splitScreen: "split_screen", textBar: "text_bar" };
 const CLOSE = 0.2;
 const items = Object.fromEntries([...VIDEO, ...SCENE].map((f) => [f, []])); // field → [{ id, values and answers (one per run), want, sure }]
 let videos = 0;
@@ -40,7 +40,7 @@ for (const dir of readdirSync(analysesDir).filter((d) => d.endsWith(".analysis")
     for (const f of SCENE) {
       if (f === "role" && i === 0) continue; // asked from scene 2: scene 1 is the hook by rule
       const values = rs.map((r) => r.scenes[i][f]);
-      if (values.includes(undefined)) continue; // showsProduct, when a run says the video sells nothing
+      if (values.includes(undefined)) continue; // showsProduct when a run says the video sells nothing; a subject left unanswered
       const answers = rs.map((r) => r.decisions?.scenes?.[i]?.[ASKED[f] ?? f]);
       items[f].push({ id: `${id} scene ${i + 1}`, values, answers, want: scenes[i]?.[f] ?? undefined, sure: sure(`scenes[${i}].${f}`) && !unsure.includes(`scenes[${i}]`) });
     }

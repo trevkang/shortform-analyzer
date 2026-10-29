@@ -24,6 +24,9 @@ export type Role = (typeof ROLES)[number];
 export const FOOTAGE = ["camera_face", "camera_body", "camera_no_person", "screen", "graphics", "other"] as const;
 export type Footage = (typeof FOOTAGE)[number];
 
+export const SUBJECTS = ["face", "full_body", "people", "hands", "object", "animal", "place", "slide", "interface"] as const;
+export type Subject = (typeof SUBJECTS)[number];
+
 export const COMMENT_KINDS = ["cta_reply", "intent", "negative", "positive", "other"] as const;
 export type CommentKind = (typeof COMMENT_KINDS)[number];
 
@@ -45,6 +48,7 @@ export const TAXONOMY: {
   sells: Field<Sells>;
   role: Field<Role>;
   footage: Field<Footage>;
+  subject: Field<Subject>;
   commentKind: Field<CommentKind>;
 } = {
   topic: {
@@ -160,6 +164,21 @@ export const TAXONOMY: {
       screen: row("A phone, computer or game screen, recorded.", "an app, a website, gameplay"),
       graphics: row("Made, not filmed.", "text cards, slides, animation"),
       other: row("None of the above."),
+    },
+  },
+  subject: {
+    values: SUBJECTS,
+    rules: ["Answer by what is seen, whether it was filmed, drawn or recorded from a screen."],
+    about: {
+      face: row("One person or character, from the waist up or closer.", "talking to the camera; a selfie; a lip-sync; doing makeup"),
+      full_body: row("One person or character, head to toe.", "a dance; an outfit check; a workout"),
+      people: row("Two or more people or characters.", "an interview; a podcast; a skit with two actors; friends dancing"),
+      hands: row("Hands doing something.", "cooking seen from above; crafting; an unboxing; tapping through a phone"),
+      object: row("An object or food.", "a product on a table; a plate of food; a product held up to the camera"),
+      animal: row("An animal.", "a dog doing a trick; a cat; fish in a tank"),
+      place: row("A place or a view.", "a room tour; a city street; a beach; the world of a game"),
+      slide: row("A designed page made to be read: text, a list, a chart or a diagram.", "a text card; a list of tips; an infographic; a quote card"),
+      interface: row("An app's or website's screen.", "a screen recording; a screenshot of a chat or a post; an app demo"),
     },
   },
   commentKind: {

@@ -28,7 +28,7 @@ describe.skipIf(!hasFfmpeg)("reuse and failure", () => {
     const asked = ok(await analyzeVideo(cuts, { ...KEYS, fetch: g.fetchFn, reuse: json(first), questions: [{ name: "red", question: "Is the first shot red?" }] }));
     expect(g.kinds()).toEqual(["decide"]);
     expect(asked.costUsd).toBe(asked.stages.decide!.costUsd);
-    expect(asked.stages.decide?.version).toMatch(/^1:gpt-6-luna:[0-9a-f]{8}$/);
+    expect(asked.stages.decide?.version).toMatch(/^2:gpt-6-luna:[0-9a-f]{8}$/);
     expect(asked.answers).toEqual({ red: true });
 
     const h = fake();
@@ -47,6 +47,16 @@ describe.skipIf(!hasFfmpeg)("reuse and failure", () => {
     expect(f.kinds()).toEqual(["describe", "decide"]);
     expect(again.stages.describe?.version).toBe("2:gpt-6-luna");
     expect(again.stages.frames?.reused).toBe(true);
+  });
+
+  it("a 0.4 result, decided without the scene facets, is decided again", async () => {
+    const old = json(ok(await analyzeVideo(cuts, { ...KEYS, fetch: fake().fetchFn })));
+    old.stages.decide!.version = "1:gpt-6-luna";
+    const f = fake();
+    const again = ok(await analyzeVideo(cuts, { ...KEYS, fetch: f.fetchFn, reuse: old }));
+    expect(f.kinds()).toEqual(["decide"]);
+    expect(again.stages.decide?.version).toBe("2:gpt-6-luna");
+    expect(again.stages.describe?.reused).toBe(true);
   });
 
   it("Example 19: the rules run again on reused answers", async () => {

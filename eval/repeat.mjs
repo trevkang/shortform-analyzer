@@ -1,9 +1,9 @@
-// Each analysis's describe and decide requests asked again, run after run, with the candidate facets (candidates.mjs) in
-// the decide request. Each run describes the analysis's own frames and words again and decides on what it wrote, as
-// src/pipeline/analyze.ts does: OpenAI's Decisions answers the same evidence the same way every time, so runs differ
-// where two analyses of the same video would. Writes repeats.json next to each analysis.json (the full one, with frames
-// and raw), for eval/stability.mjs. With --describe-from <file>, each run takes what describe wrote in that file's run
-// of the same folder and asks only decide, so two such files differ only by the questions asked.
+// Each analysis's describe and decide requests asked again, run after run. Each run describes the analysis's own frames
+// and words again and decides on what it wrote, as src/pipeline/analyze.ts does: OpenAI's Decisions answers the same
+// evidence the same way every time, so runs differ where two analyses of the same video would. Writes repeats.json next
+// to each analysis.json (the full one, with frames and raw), for eval/stability.mjs. With --describe-from <file>, each
+// run takes what describe wrote in that file's run of the same folder and asks only decide, so two such files differ
+// only by the questions asked.
 // Usage: node eval/repeat.mjs <analyses dir> [--runs 5] [--describe-from repeats-v2.json]   (OPENAI_API_KEY)
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,7 +13,6 @@ import {
   decide, DECISIONS_MODEL, describe, DESCRIBE_MODEL, describeRequest, parseDescribed, parseRecord, recordIntro, recordQuestions, sceneEvidence,
 } from "../dist/primitives.js";
 import { decisionsCost, PRICES, responsesCost } from "../dist/prices.js";
-import { CANDIDATE_FIELDS, CANDIDATE_QUESTIONS, candidateValue } from "./candidates.mjs";
 
 const spansOf = (a) => a.scenes.map((s) => ({ start: s.start, end: s.end, ...(s.cut === false ? { cut: false } : {}) }));
 
@@ -32,7 +31,7 @@ export const decideEvidence = (a) => evidence(a, parseDescribed(a.raw.describe, 
 
 /**
  * `runs` runs at once, each a describe and a decide request, or with `describes` (what describe wrote, one per run) only
- * the decide request: its decide fields, the candidates per scene, what describe wrote and the answers.
+ * the decide request: its decide fields, what describe wrote and the answers.
  */
 export async function repeat(a, { runs = 5, describes, ...openai } = {}) {
   if (!a.raw?.describe || !a.scenes.every((s) => s.frame)) throw new Error("repeat: needs the full analysis.json, with frames and raw");
@@ -40,13 +39,10 @@ export async function repeat(a, { runs = 5, describes, ...openai } = {}) {
   return Promise.all(Array.from({ length: describes?.length ?? runs }, async (_, i) => {
     const written = describes ? { output: describes[i] } : await describe(evidence(a), describeRequest(spans.length), openai);
     const described = parseDescribed(written.output, spans.length);
-    const decisions = await decide(evidence(a, described), [...recordQuestions(), ...CANDIDATE_QUESTIONS], openai);
+    const decisions = await decide(evidence(a, described), recordQuestions(), openai);
     const r = parseRecord(decisions, { spans, product: described.product });
     return {
-      topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment,
-      scenes: r.scenes.map((s, i) => ({
-        ...s, ...Object.fromEntries(Object.entries(CANDIDATE_FIELDS).map(([f, name]) => [f, candidateValue(name, decisions.scenes[i]?.[name])])),
-      })),
+      topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment, scenes: r.scenes,
       describe: written.output, describeUsage: written.usage, decisions,
     };
   }));

@@ -1,13 +1,10 @@
-// eval/: score.mjs's accuracy per field against reference labels, on a hand-made analysis; repeat.mjs's decide request
-// asked again with the candidate facets; stability.mjs's agreement between those runs.
+// eval/: score.mjs's accuracy per field against reference labels, on a hand-made analysis; repeat.mjs's describe and
+// decide requests asked again; stability.mjs's agreement between those runs.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { expandQuestions } from "../src/blocks/decide.js";
-import { MAX_SCENES } from "../src/blocks/scenes.js";
 import { analyzeVideo } from "../src/index.js";
-import { recordQuestions } from "../src/record/questions.js";
 import { fake, hasFfmpeg, KEYS, makeCuts, readText, tmp } from "./helpers.js";
 
 const evalModule = (name: string) => import(String(new URL(`../eval/${name}`, import.meta.url)));
@@ -41,6 +38,35 @@ describe("eval/score.mjs", () => {
     expect(out.misses).toContainEqual({ id: "1 scene 2", field: "role", want: "cta", got: "body" });
   });
 
+  it("scores the scene facets a label gives, and only those", () => {
+    const root = tmp();
+    mkdirSync(join(root, "labels"));
+    mkdirSync(join(root, "out", "1.analysis"), { recursive: true });
+    const base = { topic: "tech", format: "tutorial", sells: "none", asksForComment: false };
+    writeFileSync(join(root, "labels", "1.json"), JSON.stringify({
+      ...base,
+      scenes: [
+        { role: "hook", footage: "screen", subject: "interface", splitScreen: false, captions: true },
+        { role: "body", footage: "screen", subject: "slide", splitScreen: false, captions: true },
+      ],
+      unsure: { "scenes[1].subject": "interface was close" },
+    }));
+    writeFileSync(join(root, "out", "1.analysis", "analysis.json"), JSON.stringify({
+      ...base,
+      scenes: [
+        { role: "hook", footage: "screen", subject: "interface", splitScreen: false, overlay: true, captions: false },
+        { role: "body", footage: "screen", subject: "interface", splitScreen: false, overlay: true, captions: true },
+      ],
+    }));
+    const out = JSON.parse(execFileSync(process.execPath, ["eval/score.mjs", join(root, "labels"), join(root, "out"), "--json"], { encoding: "utf8" }));
+    const by = Object.fromEntries(out.fields.map((f: { field: string }) => [f.field, f]));
+    expect(by.subject).toMatchObject({ n: 2, accuracy: 0.5, nSure: 1, accuracySure: 1 });
+    expect(by.splitScreen).toMatchObject({ n: 2, accuracy: 1 });
+    expect(by.captions).toMatchObject({ n: 2, accuracy: 0.5 });
+    expect(by.overlay).toBeUndefined(); // not labelled
+    expect(out.misses).toContainEqual({ id: "1 scene 1", field: "captions", want: true, got: false });
+  });
+
   it("matches a product list name by name: most of the reference's names must be found", () => {
     const root = tmp();
     mkdirSync(join(root, "labels"));
@@ -59,7 +85,7 @@ describe("eval/score.mjs", () => {
 });
 
 describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
-  it("describes the video again and asks the decide request again, once per run, with the candidate facets of every scene in it", async () => {
+  it("describes the video again and asks the decide request again, once per run", async () => {
     const f = fake();
     const first = await analyzeVideo(makeCuts(true), { ...KEYS, fetch: f.fetchFn });
     if (!first.ok) throw new Error(first.error);
@@ -68,13 +94,8 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
     const g = fake();
     const runs = await repeat(JSON.parse(JSON.stringify(first)), { runs: 2, ...KEYS, fetch: g.fetchFn });
     expect(g.kinds().sort()).toEqual(["decide", "decide", "describe", "describe"]);
-    const candidate = (q: { name: string }) => /^(split_screen|overlay|text_bar|subject|captions|message)_\d+$/.test(q.name);
     for (const { body } of g.calls.filter((c) => c.kind === "describe")) expect(body).toEqual(sent("describe"));
-    for (const { body } of g.calls.filter((c) => c.kind === "decide")) {
-      expect(body.input).toEqual(sent("decide").input);
-      expect(body.questions.filter((q: { name: string }) => !candidate(q))).toEqual(sent("decide").questions);
-      expect(body.questions.filter(candidate)).toHaveLength(6 * first.scenes.length);
-    }
+    for (const { body } of g.calls.filter((c) => c.kind === "decide")) expect(body).toEqual(sent("decide"));
     expect(runs).toHaveLength(2);
     expect(runs[0]).toMatchObject({ topic: first.topic, format: first.format, sells: first.sells, asksForComment: first.asksForComment });
     // the fake answers a choice it doesn't know with its first value, and a yes/no one with 0.5, which is yes
@@ -105,20 +126,6 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
     expect(g.kinds()).toEqual(["decide", "decide"]);
     expect(g.calls.map((c) => readText(c.body).match(/Description \d/)![0]).sort()).toEqual(["Description 1", "Description 2"]);
     expect(runs.map((r: { describe: { description: string } }) => r.describe.description)).toEqual(["Description 1.", "Description 2."]);
-  });
-});
-
-describe("eval/candidates.mjs", () => {
-  it("with the record's questions, a video of the most scenes still fits one decide request", async () => {
-    const { CANDIDATE_QUESTIONS } = await evalModule("candidates.mjs");
-    expect(expandQuestions([...recordQuestions(), ...CANDIDATE_QUESTIONS], MAX_SCENES)).toHaveLength(4 + 3 * MAX_SCENES - 1 + 6 * MAX_SCENES);
-  });
-
-  it("asks subject by what fills most of the frame, and message of every scene its words stay on screen in, not only the first", async () => {
-    const { CANDIDATE_QUESTIONS } = await evalModule("candidates.mjs");
-    const asked = (name: string) => CANDIDATE_QUESTIONS.find((q: { name: string }) => q.name === name).instructions;
-    expect(asked("subject")).toMatch(/^What fills most of the frame of scene \{scene\}\./);
-    expect(asked("message")).toMatch(/ Also when the same words stay on screen from the scene before\.$/);
   });
 });
 
@@ -166,7 +173,7 @@ describe("eval/stability.mjs", () => {
     expect(by.message).toMatchObject({ n: 2, allAgree: 0.5, majority: 0.5, nSure: 1, majoritySure: 1 });
     expect(by.captions).toMatchObject({ nSure: 2 }); // a mark on one field of a scene leaves its other fields sure
     expect(by.overlay).toMatchObject({ majority: 0.5 });
-    // a yes/no candidate's answers are read under its question's name: split_screen for splitScreen
+    // a yes/no field's answers are read under its question's name: split_screen for splitScreen
     expect(by.splitScreen).toMatchObject({ close: 0.5, closePairs: [{ a: "false", b: "true", n: 1 }] });
     expect(by.showsProduct).toMatchObject({ n: 0 }); // every run says the video sells nothing
     expect(by.footage).toMatchObject({ close: 0.5, closePairs: [{ a: "graphics", b: "screen", n: 1 }] }); // top two within 0.2

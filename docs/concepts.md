@@ -24,7 +24,7 @@ The package is open source for the same reason: so the cost of understanding a v
 | `frames` | One JPEG per scene, from its middle, at most 512 px | none | each scene's `frame` |
 | `speech` | TikTok's own subtitles; else the transcriber, when it's on; else none ([speech](video-analysis.md#speech)) | the subtitle file (free); transcription only when on | `speech`, each scene's `spoken`, `raw.subtitles` or `raw.transcript` |
 | `describe` | One request writes the text fields | one Responses request (`gpt-6-luna`) | `product`, `tags`, `description`, `formatDescription`, each scene's `onScreenText`, `raw.describe` |
-| `decide` | One request picks every value, for the video and each scene, and answers your questions | one Decisions request (`gpt-6-luna`) | `topic`, `format`, `sells`, `asksForComment`, each scene's `role`, `footage`, `showsProduct`, `answers`, `raw.decide` |
+| `decide` | One request picks every value, for the video and each scene, and answers your questions | one Decisions request (`gpt-6-luna`); a second when your scene questions on a long video pass its 400 questions | `topic`, `format`, `sells`, `asksForComment`, each scene's `role`, `footage`, `showsProduct`, `subject`, `splitScreen`, `overlay`, `textBar`, `captions`, `message`, `answers`, `raw.decide` |
 | `comments` | Only for a TikTok post that sells or asks for a comment: one read of its top comments, and one request labels them all | apinoa comments read, one Decisions request | `comments`, `raw.comments`, `raw.commentsDecide` |
 
 ```

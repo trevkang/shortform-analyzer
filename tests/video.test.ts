@@ -30,6 +30,15 @@ describe.skipIf(!hasFfmpeg)("a video file", () => {
     expect(readText(f.calls[0].body)).toMatch(/words said in the video aren't known/);
     expect(a.comments).toBeUndefined();
     expect(a.stages.comments).toBeUndefined();
+    // the fake answers subject with its first value, and every yes/no with 0.5, which is yes
+    expect(a.scenes[1]).toMatchObject({ subject: "face", splitScreen: true, overlay: true, textBar: true, captions: true, message: true });
+    expect(a.stages.decide).toMatchObject({ requests: 1, images: 3 });
+  });
+
+  it("counts every request and image a decide split into several sent", async () => {
+    const decider = { id: "split", decide: async () => ({ video: {}, scenes: [], usage: { inputTokens: 10 }, requests: 2 }) };
+    const a = ok(await analyzeVideo(cuts, { ...KEYS, fetch: fake().fetchFn, decider }));
+    expect(a.stages.decide).toMatchObject({ requests: 2, images: 6, inputTokens: 10 });
   });
 
   it("Example 1: the describe output follows its rules; the decide request reads it", async () => {
@@ -111,7 +120,7 @@ describe.skipIf(!hasFfmpeg)("a video file", () => {
   it("the summary keeps each run of scenes on one line, whatever the text on screen holds", async () => {
     const f = fake({ describeOutput: (n) => ({ product: "", tags: [], description: "d", formatDescription: "f", onScreenText: Array.from({ length: n }, () => "TOP\n BOTTOM") }) });
     const text = summarize(ok(await analyzeVideo(cuts, { ...KEYS, fetch: f.fetchFn })));
-    expect(text).toContain('\n  body 1.5-4.5 s, 2 scenes (screen) [on screen: "TOP BOTTOM / TOP BOTTOM"]\n');
+    expect(text).toContain('\n  body 1.5-4.5 s, 2 scenes (screen; face; split screen, overlay, text bar, captions, message) [on screen: "TOP BOTTOM / TOP BOTTOM"]\n');
   });
 
   it("a Buffer works like the file", async () => {

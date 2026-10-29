@@ -21,7 +21,7 @@ function table(text: string): string[][] {
   return rows.slice(2);
 }
 
-const FIELDS = { topic: "topic", format: "format", sells: "sells", role: "role", footage: "footage", commentKind: "kind" } as const;
+const FIELDS = { topic: "topic", format: "format", sells: "sells", role: "role", footage: "footage", subject: "subject", commentKind: "kind" } as const;
 
 describe("TAXONOMY (Example 24)", () => {
   for (const [field, heading] of Object.entries(FIELDS) as [keyof typeof TAXONOMY, string][]) {
@@ -51,6 +51,7 @@ describe("TAXONOMY (Example 24)", () => {
     expect(listed("sells")).toEqual([...TAXONOMY.sells.values]);
     expect(listed("role")).toEqual([...TAXONOMY.role.values]);
     expect(listed("footage")).toEqual([...TAXONOMY.footage.values]);
+    expect(listed("subject")).toEqual([...TAXONOMY.subject.values]);
     expect(listed("kind")).toEqual([...TAXONOMY.commentKind.values]);
   });
 });

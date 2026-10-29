@@ -17,7 +17,7 @@ import { openaiDecider, openaiDescriber, openaiTranscriber } from "./engines.js"
 
 /** Raised when a stage's code, prompt or questions change, so `reuse` runs it again. */
 export const STAGE_VERSIONS: Record<StageName, string> = {
-  source: "1", scenes: "1", frames: "1", speech: "1", describe: "2", decide: "1", comments: "1",
+  source: "1", scenes: "1", frames: "1", speech: "1", describe: "2", decide: "2", comments: "1",
 };
 
 /** What each stage reads: a stage is taken from `reuse` only when these were taken too. */
@@ -260,17 +260,17 @@ export async function analyzeVideo(input: Input, options: Options = {}): Promise
     } else {
       const { value, ms } = await timed(() => decider.decide(evidence(described), recordQuestions({ questions: options.questions })));
       raw.decide = value;
-      stages.decide = { version: decideVersion, ms, costUsd: decisionsCost(prices, decider.id, value.usage), ...used(value.usage, { requests: 1, images: frames.length }) };
+      const requests = value.requests ?? 1;
+      stages.decide = { version: decideVersion, ms, costUsd: decisionsCost(prices, decider.id, value.usage), ...used(value.usage, { requests, images: requests * frames.length }) };
     }
     const record = parseRecord(raw.decide!, { spans, product: described.product, questions: options.questions });
 
     const scenes: Scene[] = spans.map((s, i) => {
-      const r = record.scenes[i];
+      const { answers, ...fields } = record.scenes[i]; // role, footage, showsProduct when it sells, subject when answered, the yes/no facets
       return {
-        index: i, start: s.start, end: s.end, cut: s.cut !== false, role: r.role, footage: r.footage,
-        ...(r.showsProduct !== undefined ? { showsProduct: r.showsProduct } : {}),
+        index: i, start: s.start, end: s.end, cut: s.cut !== false, ...fields,
         spoken: spoken[i], onScreenText: described.onScreenText[i], frame: dataUrl(frames[i]),
-        ...(r.answers ? { answers: r.answers } : {}),
+        ...(answers ? { answers } : {}),
       };
     });
 

@@ -26,13 +26,17 @@ frame per scene and the words in each scene. Don't look at the record while labe
 ```json
 {
   "topic": "education", "format": "tutorial", "sells": "software", "product": "StudyFetch", "asksForComment": false,
-  "scenes": [{ "role": "hook", "footage": "screen", "showsProduct": true }],
+  "scenes": [{
+    "role": "hook", "footage": "screen", "showsProduct": true,
+    "subject": "interface", "splitScreen": false, "overlay": true, "textBar": false, "captions": true, "message": true
+  }],
   "comments": { "7432114906157491000": "intent", "7432118830426358000": "positive" },
   "unsure": { "format": "review was close: it compares two apps" }
 }
 ```
 
-- `scenes`: one entry per scene of the analysis, in order. `showsProduct` is `null` when `sells` is `none`.
+- `scenes`: one entry per scene of the analysis, in order. `showsProduct` is `null` when `sells` is `none`. The scene
+  facets (`subject` to `message`) are scored when a label has them; labels made before 0.5.0 have none.
 - `comments`: the kind of each comment, by the comment's `id`. Only the comments a run read are scored: a later run
   can read them in another order, or read others. Leave it out when no comments were read.
 - `unsure`: each label where a second value was close, with why, keyed `format`, `scenes[2].role` or
@@ -43,9 +47,8 @@ frame per scene and the words in each scene. Don't look at the record while labe
 ## How steady each field is
 
 `repeat.mjs` analyses each video again, `--runs` times, from the analysis's own frames and words: each run describes
-it again and asks the decide request with the candidate scene facets of [`candidates.mjs`](candidates.mjs) in it
-(`split_screen`, `overlay`, `text_bar`, `subject`, `captions` and `message`, which aren't in the record). Decide alone wouldn't move: OpenAI's Decisions
-answered 5 runs of the same evidence identically, to the probability, on all 36 posts tried. `stability.mjs` reports per
+it again and asks the decide request on what it wrote. Decide alone wouldn't move: OpenAI's Decisions answered 5 runs of
+the same evidence identically, to the probability, on all 36 posts tried. `stability.mjs` reports per
 field how often every run agrees, how often two runs agree, the values that trade places and how often the two most
 probable values were within 0.2 (a near tie), and with labels each run's accuracy and the majority's. A field that keeps
 changing, or keeps nearly tying between the same two values, has values that overlap.
@@ -56,12 +59,38 @@ node eval/stability.mjs out/ labels/     # the table, then every miss of the maj
 node eval/stability.mjs out/ labels/ --json
 ```
 
-To compare two wordings of the candidates on the same evidence, keep one round's repeats.json under another name and
-run the other with `--describe-from <that name>`: each run reuses what describe wrote in the same run of that file and
-asks only decide, so the two rounds differ only by the questions.
+To compare two wordings on the same evidence, keep one round's repeats.json under another name, change the wording,
+build, and run again with `--describe-from <that name>`: each run reuses what describe wrote in the same run of that
+file and asks only decide, so the two rounds differ only by the questions. `role` is compared from scene 2, since
+scene 1 is the hook by rule.
 
-A candidate's label goes in its scene, next to `role` and `footage`, named in camelCase as `showsProduct` is:
-`"splitScreen": false`, `"overlay": true`, `"textBar": false`, `"subject": "interface"`, `"captions": true`, `"message": false`. `role` is compared from scene 2, since scene 1 is the hook by rule.
+## Results, 0.5.0: the scene facets
+
+36 public TikToks (34 videos of 5 to 79 s and 2 photo posts, 16 with TikTok subtitles; 216 scenes), October 2026, each
+described and decided 5 times by `repeat.mjs` and read by `stability.mjs`. Claude agents labelled every scene from the
+evidence the model gets, blind to the runs: read the table as agreement with a careful second reader. The posts and
+labels aren't in the repo.
+
+| Field | All 5 runs agree | The runs' majority matches the label | On labels marked sure |
+| --- | --- | --- | --- |
+| a scene's `splitScreen` | 94% | 95% | 95% of 206 |
+| a scene's `overlay` | 94% | 95% | 100% of 180 |
+| a scene's `textBar` | 97% | 98% | 98% of 195 |
+| a scene's `subject` | 78% | 77% | 97% of 100 |
+| a scene's `captions` | 76% | 84% | 87% of 183 |
+| a scene's `message` | 86% | 91% | 94% of 170 |
+| a scene's `footage`, for comparison | 82% | 85% | 89% of 183 |
+| a scene's `role` from scene 2, for comparison | 83% | 77% | 92% of 119 |
+
+- **`subject`** is where the labeller was least sure (116 of 216 scenes marked): a person framed between the waist and
+  the knees (`face` or `full_body`), a phone in a hand (`hands`, `object` or `interface`) and a game's world (`place`
+  or `interface`). On the labels marked sure, the majority matched 97%.
+- **What the eval changed.** The first wording asked `message` only of the scene where a line first showed: of 104
+  labelled message scenes it found 61, and of the 70 right after another message scene, 32. Adding "Also when the
+  same words stay on screen from the scene before." found 87 and 60, with 2 wrong yes instead of 3. `subject` first
+  asked what a scene shows; asking what fills most of the frame matched more labels, against either round's labels.
+- **Cost.** The six questions per scene took the decide request from 8,092 to 16,415 input tokens per post on average
+  (×2.03), about $0.0008 more per post.
 
 ## Results, 0.4.0
 

@@ -17,7 +17,7 @@ export { decide, DECISIONS_MODEL, MAX_DECISION_QUESTIONS } from "./blocks/decide
 
 // Layer 2 · the record
 export {
-  COMMENT_KINDS, FOOTAGE, FORMATS, ROLES, SELLS, TAXONOMY, TOPICS, valueText, type Field, type ValueText,
+  COMMENT_KINDS, FOOTAGE, FORMATS, ROLES, SELLS, SUBJECTS, TAXONOMY, TOPICS, valueText, type Field, type ValueText,
 } from "./record/taxonomy.js";
 export {
   checkQuestions, MAX_CHOICES, MAX_QUESTIONS, MAX_SCENE_QUESTIONS, RECORD_QUESTIONS, recordQuestions,

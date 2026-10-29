@@ -81,7 +81,7 @@ const b = await analyzeVideo("clip.mp4", { transcribe: true });
 | `sceneEvidence(spans, frames, texts, options)` | 1 | `Evidence`: per scene, its time, frame and words. Options: `duration`, `intro`, `words` (`subtitles`, `transcription` or `none`: how the words are labelled), `photos` |
 | `textEvidence(intro, texts)` | 1 | `Evidence` of texts only, one item per text: `scene` questions are asked once per text |
 | `describe(evidence, request, options?)` | 1 | One Responses request with a JSON schema → `{ output, usage }`. No fallbacks. Options: `model`; `effort`, the reasoning effort (`low` for gpt-6-luna, else none sent); `serviceTier: "flex"` |
-| `decide(evidence, questions, options?)` | 1 | One Decisions request → `Decisions { video, scenes[], usage? }`. No fallbacks |
+| `decide(evidence, questions, options?)` | 1 | One Decisions request, or one per 400 questions → `Decisions { video, scenes[], usage?, requests? }`. No fallbacks |
 | `TAXONOMY` | 2 | Every decide field: its values with their tests, examples and near misses, and its rules |
 | `checkQuestions(questions)` | 2 | Throws `questions:` unless the caller's questions are within the limits below |
 | `recordIntro(facts, described?)` | 2 | The first lines both requests read: the length, the scene count, whether the words are known, and what TikTok says about the post, its account included. Given the describe output, the decide request's also say what it wrote |
@@ -94,7 +94,7 @@ const b = await analyzeVideo("clip.mp4", { transcribe: true });
 | `commentEvidence(comments, record)`, `commentQuestions(record)`, `parseComments(decisions, comments)` | 2 | The comments' decide request and its answers |
 | Types: `Span`, `Word`, `Cue`, `Segment`, `Transcript`, `Post`, `Evidence`, `DecisionQuestion`, `Decisions`, `DecisionAnswer`, `Usage` | 1 | `Post` is `@apinoa/sdk`'s `Apinoa.Post` |
 
-`DecisionQuestion` is `{ type: "predicate" | "choice" | "score", name, instructions, scope?: "video" | "scene", from?, choices? | levels? }`. A `scene` question is sent once per scene as `<name>_<i>`, from scene `from` on (0, the first, by default; the record's `role` starts at 1, since the first scene is always the hook), with `{scene}` in `instructions` replaced by the scene number from 1. After that expansion a request holds 1 to 400 questions, or `decide` throws before sending. Names match `[a-z0-9_]+` and are unique. The `q_` prefix keeps a caller's question from colliding with a record field.
+`DecisionQuestion` is `{ type: "predicate" | "choice" | "score", name, instructions, scope?: "video" | "scene", from?, choices? | levels? }`. A `scene` question is sent once per scene as `<name>_<i>`, from scene `from` on (0, the first, by default; the record's `role` starts at 1, since the first scene is always the hook), with `{scene}` in `instructions` replaced by the scene number from 1. After that expansion they go out in order, at most 400 to a request, each request with the whole evidence; `usage` adds the requests up, and `requests` says how many there were when more than one. Each question is answered on its own, so the split changes no answer. With no question at all, `decide` throws before sending. Names match `[a-z0-9_]+` and are unique. The `q_` prefix keeps a caller's question from colliding with a record field.
 
 **Errors in `primitives`:** these functions **throw** an `Error` whose message starts with its stage (`input:`, `source:`, `video:`, `speech:`, `describe:`, `decide:`, `comments:`; `questions:` from `checkQuestions`). A missing key throws `<stage>: OPENAI_API_KEY is not set …` or `<stage>: APINOA_API_KEY is not set …` before any request.
 
@@ -158,7 +158,7 @@ type DescribeRequest = { name: string; instructions: string; schema: object };  
 type Usage = { inputTokens?: number; outputTokens?: number; audioSec?: number; costUsd?: number; serviceTier?: "flex" };
 ```
 
-The `id` goes into the stage's version, so a new engine reruns its stage on reuse. When `usage.costUsd` is given, it is the stage's cost; otherwise the cost is priced from `PRICES` by `id`, and an `id` the table doesn't have costs 0.
+The `id` goes into the stage's version, so a new engine reruns its stage on reuse. When `usage.costUsd` is given, it is the stage's cost; otherwise the cost is priced from `PRICES` by `id`, and an `id` the table doesn't have costs 0. A decider that sends its questions in several requests sets `Decisions.requests`, and the `decide` stage counts that many requests and the frames once per request.
 
 #### Flex
 
@@ -217,6 +217,9 @@ doesn't take Decisions requests.
 | `role` | string | yes | `hook`, `body`, `payoff`, `cta` |
 | `footage` | string | yes | `camera_face`, `camera_body`, `camera_no_person`, `screen`, `graphics`, `other` |
 | `showsProduct` | boolean | no | Present only when `sells` isn't `none` |
+| `subject` | string | no | `face`, `full_body`, `people`, `hands`, `object`, `animal`, `place`, `slide`, `interface`; left out when it wasn't answered |
+| `splitScreen`, `overlay`, `textBar` | boolean | yes | How the frame is laid out |
+| `captions`, `message` | boolean | yes | What the text on screen does |
 | `spoken` | string | yes | Empty when nothing is said, or when the words aren't known (`speech` is `none`) |
 | `onScreenText` | string | yes | |
 | `frame` | string | yes | The JPEG the model saw, as a data URL, at most 512 px |
@@ -259,16 +262,19 @@ Illustrative values, not a real video (`frame` and `raw` cut short):
   "scenes": [
     {
       "index": 0, "start": 0, "end": 2.1, "cut": true, "role": "hook", "footage": "camera_face", "showsProduct": false,
+      "subject": "face", "splitScreen": false, "overlay": false, "textBar": false, "captions": true, "message": true,
       "spoken": "Two apps that got me through finals.", "onScreenText": "2 apps for finals",
       "frame": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
     },
     {
       "index": 1, "start": 2.1, "end": 6.8, "cut": true, "role": "body", "footage": "screen", "showsProduct": true,
+      "subject": "interface", "splitScreen": false, "overlay": false, "textBar": false, "captions": false, "message": true,
       "spoken": "Notewise turns your lecture notes into flashcards.", "onScreenText": "Notewise",
       "frame": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
     },
     {
       "index": 2, "start": 6.8, "end": 9.4, "cut": true, "role": "cta", "footage": "camera_face", "showsProduct": false,
+      "subject": "face", "splitScreen": false, "overlay": false, "textBar": false, "captions": false, "message": true,
       "spoken": "Comment notes and I'll send you the link.", "onScreenText": "comment NOTES",
       "frame": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
     }
@@ -283,10 +289,10 @@ Illustrative values, not a real video (`frame` and `raw` cut short):
     "frames": { "version": "1", "ms": 120, "costUsd": 0 },
     "speech": { "version": "1:subtitles", "ms": 90, "costUsd": 0 },
     "describe": { "version": "2:gpt-6-luna", "ms": 3800, "costUsd": 0.00043, "requests": 1, "inputTokens": 2900, "outputTokens": 280, "images": 3 },
-    "decide": { "version": "1:gpt-6-luna", "ms": 900, "costUsd": 0.00034, "requests": 1, "inputTokens": 3400, "images": 3 },
+    "decide": { "version": "2:gpt-6-luna", "ms": 900, "costUsd": 0.00076, "requests": 1, "inputTokens": 7600, "images": 3 },
     "comments": { "version": "1:gpt-6-luna", "ms": 1500, "costUsd": 0.00105, "apinoaCalls": 1, "requests": 1, "inputTokens": 500 }
   },
-  "costUsd": 0.00282,
+  "costUsd": 0.00324,
   "raw": { "post": { "id": "7500726429689204010" }, "subtitles": "WEBVTT\n\n00:00.000 --> 00:02.100\nTwo apps that got me through finals." }
 }
 ```
@@ -348,7 +354,7 @@ Each row is pinned by a test in `tests/`. Videos are made with ffmpeg `lavfi`; O
 | 2 | Transcription on | Example 1 with `transcribe: true` | `speech` transcription; the words land in their scenes; the requests label them "automatic transcription, may be song lyrics". Calls: transcription, describe, decide |
 | 3 | One long take | One 11 s shot | 3 scenes of equal length; scenes 2 and 3 have `cut` false |
 | 4 | Whisper's music line | A transcript whose segment is "Thanks for watching!" with `noSpeechProb` 0.5 and `avgLogprob` -0.86 | The segment and its words are dropped, from `whisper-1` or a transcriber of your own |
-| 5 | Missing or refused answers | A two-scene decide reply where `role_1` is refused and `footage_1` and `topic` are missing | Scene 2: role `body`, footage `other`; topic `other`. Scene 1 is `hook` without being asked |
+| 5 | Missing or refused answers | A two-scene decide reply where `role_1` is refused and `footage_1` and `topic` are missing | Scene 2: role `body`, footage `other`, the yes/no facets no, no `subject`; topic `other`. Scene 1 is `hook` without being asked |
 | 6 | No OpenAI key | Example 1 with an empty key | ok false. The error names `OPENAI_API_KEY`. No network call |
 | 7 | Unreadable file | A path that does not exist (`/nope.mp4`) | ok false. The error starts with "video:" |
 | 8 | The hook rule | Scenes starting at 0, 2, 4 and 6.5 s; the reply says hook, body, hook for scenes 2–4, then a reply that says hook, hook, hook | First: hook, hook, body, then scene 4's most probable role other than hook. Second: hook, hook, hook, and scene 4 (from 6.5 s) is not hook |
@@ -358,7 +364,7 @@ Each row is pinned by a test in `tests/`. Videos are made with ffmpeg `lavfi`; O
 | 12 | An expired link | Example 11 where the first video download answers 403 | One more post read, then the fresh link. Two failures: ok false, "source: download 403" |
 | 13 | Comments | Example 11 where the reply says `sells` software and `asksForComment` no; then `sells` none | First: one comments read, the creator's own left out, one decide request with a `kind` per comment and no `cta_reply` choice. Second: no comments read and no `comments` field |
 | 14 | A scene question of your own (`decide`) | `decide` on Example 1's evidence with one predicate `logo`, scope `scene`, "Is a logo visible in scene {scene}?" | The request holds `logo_0`, `logo_1`, `logo_2`, their instructions name scenes 1, 2 and 3. `scenes[i].logo.probability` comes back per scene |
-| 15 | Too many questions (`decide`) | `decide` on a 40-scene evidence with 11 scene-scope questions (440 after expansion) | Throws, the message starts with "decide:" and says 400. No network call |
+| 15 | More than 400 questions (`decide`) | `decide` on a 40-scene evidence with 11 scene-scope questions (440 after expansion) | Two requests, of 400 and 40 questions, with the same evidence. Every scene has its 11 answers, `usage` is the two requests' together and `requests` is 2 |
 | 16 | An answer left out (`decide`) | `decide` where the reply has no `logo_1` | `scenes[1].logo` is undefined. No fallback value |
 | 17 | The parts rebuild the whole | Examples 1 and 3, once through `analyzeVideo` and once through a pipeline made from `primitives` exports | Equal records (stage times aside) |
 | 18 | Scene rules as options | Example 3's 11 s take with `detectScenes(video, { maxTake: 3 })` | 4 scenes of 2.75 s. Scenes 2 to 4 have `cut: false` |

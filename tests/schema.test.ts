@@ -17,6 +17,12 @@ describe("schema", () => {
     expect(p.sells.enum).toEqual([...TAXONOMY.sells.values]);
     expect(schema.definitions.scene.properties.role.enum).toEqual([...TAXONOMY.role.values]);
     expect(schema.definitions.scene.properties.footage.enum).toEqual([...TAXONOMY.footage.values]);
+    expect(schema.definitions.scene.properties.subject.enum).toEqual([...TAXONOMY.subject.values]);
+    for (const f of ["splitScreen", "overlay", "textBar", "captions", "message"]) {
+      expect(schema.definitions.scene.properties[f], f).toEqual({ type: "boolean" });
+      expect(schema.definitions.scene.required, f).toContain(f);
+    }
+    expect(schema.definitions.scene.required).not.toContain("subject"); // left out when it wasn't answered
     expect(schema.definitions.comment.properties.kind.enum).toEqual([...TAXONOMY.commentKind.values]);
     expect(Object.keys(p.stages.properties)).toEqual([...STAGES]);
   });

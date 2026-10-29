@@ -1,11 +1,23 @@
 // Decisions → the record's decide fields, with the fallbacks and the hook rule (docs/video-analysis.md).
-import type { Answer, DecisionAnswer, Decisions, Footage, Format, Question, Role, Sells, Span, Topic } from "../types.js";
+import type { Answer, DecisionAnswer, Decisions, Footage, Format, Question, Role, Sells, Span, Subject, Topic } from "../types.js";
 import { QUESTION_PREFIX } from "./questions.js";
-import { FOOTAGE, FORMATS, ROLES, SELLS, TOPICS } from "./taxonomy.js";
+import { FOOTAGE, FORMATS, ROLES, SELLS, SUBJECTS, TOPICS } from "./taxonomy.js";
 
 export const HOOK_BEFORE = 6; // s: a later scene can still be hook only if it starts before this (TikTok's guidance)
 
-export type SceneFields = { role: Role; footage: Footage; showsProduct?: boolean; answers?: Record<string, Answer> };
+export type SceneFields = {
+  role: Role;
+  footage: Footage;
+  showsProduct?: boolean;
+  /** Left out when it wasn't answered: it has no `other`. */
+  subject?: Subject;
+  splitScreen: boolean;
+  overlay: boolean;
+  textBar: boolean;
+  captions: boolean;
+  message: boolean;
+  answers?: Record<string, Answer>;
+};
 
 export type RecordFields = {
   topic: Topic;
@@ -72,6 +84,12 @@ export function parseRecord(d: Decisions, facts: { spans: Span[]; product: strin
         role: roles[i],
         footage: pick(s.footage, FOOTAGE, "other"),
         ...(sells !== "none" ? { showsProduct: yes(s.shows_product) } : {}),
+        ...(SUBJECTS.includes(s.subject?.choice as Subject) ? { subject: s.subject!.choice as Subject } : {}),
+        splitScreen: yes(s.split_screen),
+        overlay: yes(s.overlay),
+        textBar: yes(s.text_bar),
+        captions: yes(s.captions),
+        message: yes(s.message),
         ...(sceneQs.length ? { answers: callerAnswers(s, sceneQs) } : {}),
       };
     }),

@@ -5,7 +5,7 @@ that sell or ask for a comment, its top comments. The record is fixed: these fie
 opinion, and every caller gets the same ones. Your own questions are added next to it, never into it
 ([concepts.md](concepts.md#what-you-can-change)).
 
-Its job is the recipe: how the video is made, so someone could make one like it, plus a coarse subject to filter by.
+Its job is the recipe: how the video is made, so someone could make one like it, plus a coarse topic to filter by.
 A field is here only because a search reads it. What a pitched product does belongs to the account that sells it, not
 to the video.
 
@@ -156,6 +156,12 @@ A scene runs from one cut to the next; in a photo post, each photo is a scene.
 | `role` | decide; code sets the first scene to `hook` | `hook` · `body` · `payoff` · `cta` |
 | `footage` | decide | `camera_face` · `camera_body` · `camera_no_person` · `screen` · `graphics` · `other` |
 | `showsProduct` | decide | yes · no; kept only when `sells` isn't `none` |
+| `subject` | decide | `face` · `full_body` · `people` · `hands` · `object` · `animal` · `place` · `slide` · `interface` |
+| `splitScreen` | decide | yes · no |
+| `overlay` | decide | yes · no |
+| `textBar` | decide | yes · no |
+| `captions` | decide | yes · no |
+| `message` | decide | yes · no |
 | `spoken` | code | the words said in the scene ([Speech](#speech)) |
 | `onScreenText` | describe | the video's main caption in the frame, verbatim |
 | `frame` | code | the JPEG the model saw: the scene's middle frame, at most 512 px on its long side |
@@ -173,7 +179,7 @@ TikTok's post has none. The hook rule, the cut rhythm and when the product first
    on 187 TikToks the first shot up to its first cut ran a median 7.3 s (60% ran 6 s or more), and the first scene
    after the split a median 3.9 s. `cut` keeps the split apart from the edit: cuts per second count only scenes where
    it is yes.
-4. Past 40 scenes the shortest neighbours merge, so one decide request stays within its limits. None of the 187 had
+4. Past 40 scenes the shortest neighbours merge, so the record's questions fit one decide request. None of the 187 had
    more than 40; the median was 9.
 
 Each number is an option of `detectScenes` ([concepts.md](concepts.md#composing-your-own)); `analyzeVideo` uses these.
@@ -222,7 +228,7 @@ over an app use it.
 
 - When more than one value fits, the first in the table wins. A green screen over an app and a game facecam are both
   `camera_face`: the creator has to show their face. What is behind the person goes in `formatDescription`, where
-  keyword search and the relevance check find it.
+  keyword search and the relevance check find it, and `overlay` says one picture sits on another.
 - A face that is part of what a screen shows (a photo in an app, a video playing in it) is `screen`.
 - A phone filmed in someone's hand is `camera_*`. `screen` is only a recording of the screen itself.
 - A photo in a photo post is judged by what it shows.
@@ -234,6 +240,59 @@ over an app use it.
 Yes when the product the video sells is in the scene: seen (the item, its packaging or its screen, also while it is used
 or applied) or named. Asked for every scene, kept only when `sells` isn't `none`. It gives where and how often the product
 appears.
+
+### subject
+
+What fills most of the frame. `footage` says how the scene was made; `subject` says what it shows. Answer by what is
+seen, whether it was filmed, drawn or recorded from a screen. A cartoon character talking is `face` like a creator
+talking, and the world of a game is `place` like a street. With the layout and the text below, it says how a scene is
+built, so videos made the same way are found together whatever they are about.
+
+| Value | Test | Example |
+|---|---|---|
+| `face` | One person or character, from the waist up or closer. | talking to the camera; a selfie; a lip-sync; doing makeup |
+| `full_body` | One person or character, head to toe. | a dance; an outfit check; a workout |
+| `people` | Two or more people or characters. | an interview; a podcast; a skit with two actors; friends dancing |
+| `hands` | Hands doing something. | cooking seen from above; crafting; an unboxing; tapping through a phone |
+| `object` | An object or food. | a product on a table; a plate of food; a product held up to the camera |
+| `animal` | An animal. | a dog doing a trick; a cat; fish in a tank |
+| `place` | A place or a view. | a room tour; a city street; a beach; the world of a game |
+| `slide` | A designed page made to be read: text, a list, a chart or a diagram. | a text card; a list of tips; an infographic; a quote card |
+| `interface` | An app's or website's screen. | a screen recording; a screenshot of a chat or a post; an app demo |
+
+The values have no order and no exceptions: each is a plain noun with one sentence and examples, so a scene whose answer
+changes between runs points at the words, not at rules around them. There is no `other`: a `subject` that wasn't
+answered is left out.
+
+### splitScreen, overlay and textBar
+
+How the frame is put together, which a remake has to copy. Each is asked on its own, so one frame can have all three: a
+reaction window over a split screen, under a text bar.
+
+- `splitScreen`: yes when the frame is split into panels, each with its own picture. Yes for a duet side by side; a
+  reaction stacked over the original; before and after side by side; gameplay on top and a face below.
+- `overlay`: yes when a second picture sits on top of the main one: a video, photo or screenshot in a window, or a
+  person cut out over it. Yes for a facecam over gameplay; a reaction window in a corner; a green screen; a screenshot
+  laid over a talking head.
+- `textBar`: yes when the picture is shrunk to make room for a solid bar above or below it, with text in the bar. Yes
+  for a meme clip under a white bar of text; a podcast clip under a headline bar.
+
+`onScreenText` leaves the bar's text out, since it repeats in every scene; `textBar` says the bar is there, and `message`
+says its words speak to the viewer.
+
+### captions and message
+
+What the text on screen does. `onScreenText` keeps the main caption's words; these two say what kind of text the frame
+shows, and a scene can have both.
+
+- `captions`: yes when the words heard in the scene are written on screen as subtitles. Yes for subtitles under a
+  talking head; word-by-word captions of a voiceover; a song's lyrics on screen.
+- `message`: yes when the scene shows words its maker wrote for the viewer, other than the words heard: a hook, a title,
+  a statement, a joke, a POV, a question, a list or a line of a story. Yes for "POV: you finally found an app that
+  works"; "3 mistakes everyone makes"; a headline bar over a podcast clip. Also when the same words stay on screen from
+  the scene before: without that sentence, a line kept on screen was a message only in the scene it first showed in. Of
+  70 labelled message scenes right after another, 32 were found without it and 60 with it
+  ([eval](../eval/README.md#results-050-the-scene-facets)).
 
 ### onScreenText
 
@@ -309,8 +368,9 @@ sales.
 ## When an answer is missing
 
 A refused or missing decide answer falls back to: `topic`, `format` and `footage` `other`; `sells` `none`; `role`
-`body`; `asksForComment`, `showsProduct` no; a comment's `kind` `other`. A describe field the model left out is empty.
-A question of your own that wasn't answered is left out of `answers`.
+`body`; `asksForComment`, `showsProduct`, `splitScreen`, `overlay`, `textBar`, `captions` and `message` no; a comment's
+`kind` `other`. A `subject` that wasn't answered is left out, since it has no `other`. A describe field the model left
+out is empty. A question of your own that wasn't answered is left out of `answers`.
 
 ## Not extracted
 
@@ -327,5 +387,7 @@ A question of your own that wasn't answered is left out of `answers`.
 - **Roll-ups from the scenes** (how long a face is on screen, when the product first appears): computed from the scene
   values when a search needs them.
 - **Who wrote each comment:** no search reads it; `raw.comments` keeps it.
-- **Attractiveness, or who a face belongs to:** never. About people, the record says only whether someone is filmed and
-  whether their face shows.
+- **Whose voice is heard** (the person shown, a voiceover, a song): the requests can't hear the audio, and a frame
+  can't tell a voiceover from the person shown talking. `speech` and the post's sound say what can be known.
+- **Attractiveness, or who a face belongs to:** never. About people, the record says only whether someone is filmed,
+  whether their face shows, and how much of one person or how many people fill the frame.

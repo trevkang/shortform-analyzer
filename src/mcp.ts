@@ -24,6 +24,7 @@ export function createServer(options: Options & { outDir?: string; version?: str
     title: "Analyze a short-form video",
     description: "The record of one short-form video (a local file path or a TikTok post URL): its format, topic, whether it sells and what, " +
       "tags, a description of what it's about and how it's made, and scene by scene its role (hook, body, payoff, cta), footage, " +
+      "what fills the frame, its layout (split screen, overlay, text bar), whether it has captions or a message, " +
       "words said and text on screen; for a TikTok post that sells or asks for a comment, its top comments with a kind each. " +
       "Writes analysis.json, report.html, frames/ and sheet.jpg (all frames on one image) to a folder and returns its path.",
     inputSchema: {

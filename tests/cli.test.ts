@@ -70,7 +70,7 @@ describe("cli", () => {
     expect(r.stderr).toBe("");
     expect(r.code).toBe(0);
     expect(r.stdout).toMatch(/^listicle about education, sells nothing\. 4\.5 s, 3 scenes, words: not known\./);
-    expect(r.stdout).toMatch(/\n {2}hook 0\.0-1\.5 s, 1 scene \(screen\)/);
+    expect(r.stdout).toMatch(/\n {2}hook 0\.0-1\.5 s, 1 scene \(screen; face; split screen, overlay, text bar, captions, message\)/);
     expect(r.stdout).toMatch(/Answers: red yes\./);
     expect(seen).toEqual(["/responses", "/decisions"]);
     const dir = `${video}.analysis`;
@@ -80,6 +80,7 @@ describe("cli", () => {
     expect(a.scenes[0].frame).toMatch(/^data:image\/jpeg;base64,/);
     expect(readFileSync(join(dir, "sheet.jpg")).subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
     expect(readFileSync(join(dir, "report.html"), "utf8")).toMatch(/<img src="data:image\/jpeg;base64,/);
+    expect(readFileSync(join(dir, "report.html"), "utf8")).toMatch(/<i>screen<\/i> <i>· face<\/i> <i>· split screen<\/i> <i>· overlay<\/i> <i>· text bar<\/i> <i>· captions<\/i> <i>· message<\/i><\/p>/);
 
     seen.length = 0;
     const again = await cli(["analyze", video, "--question", 'red="Is the first shot red?"']);

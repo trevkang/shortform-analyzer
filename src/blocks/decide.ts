@@ -17,7 +17,7 @@ function wire(q: DecisionQuestion, name: string, instructions: string): Wire {
 
 const asked = (q: DecisionQuestion, i: number) => q.scope === "scene" && i >= (q.from ?? 0);
 
-/** The questions as sent: each scene's `scene` questions (scene by scene), then the `video` ones. Throws on a bad set. */
+/** The questions as sent: each scene's `scene` questions (scene by scene), then the `video` ones. Throws on a bad set or none. */
 export function expandQuestions(questions: DecisionQuestion[], scenes: number): Wire[] {
   const sceneQs = questions.filter((q) => q.scope === "scene");
   const videoQs = questions.filter((q) => q.scope !== "scene");
@@ -33,15 +33,19 @@ export function expandQuestions(questions: DecisionQuestion[], scenes: number): 
     if (seen.has(w.name)) throw new Error(`decide: question name "${w.name}" is used twice`);
     seen.add(w.name);
   }
-  if (out.length < 1 || out.length > MAX_DECISION_QUESTIONS) {
-    throw new Error(`decide: ${out.length} questions after expanding per scene; one request holds 1 to ${MAX_DECISION_QUESTIONS}`);
-  }
+  if (out.length < 1) throw new Error(`decide: 0 questions after expanding per scene; a request holds 1 to ${MAX_DECISION_QUESTIONS}`);
   return out;
 }
 
-/** The request body for OpenAI Decisions. */
-export function decisionsRequest(evidence: Evidence, questions: DecisionQuestion[], model = DECISIONS_MODEL) {
-  return { model, input: [{ role: "user", content: responsesContent(evidence) }], questions: expandQuestions(questions, evidence.scenes) };
+/**
+ * The request bodies for OpenAI Decisions: the questions in order, at most 400 to a request, each request with the whole
+ * evidence. Each question is answered on its own, so the answers don't depend on which request asked them.
+ */
+export function decisionsRequests(evidence: Evidence, questions: DecisionQuestion[], model = DECISIONS_MODEL) {
+  const all = expandQuestions(questions, evidence.scenes);
+  const input = [{ role: "user", content: responsesContent(evidence) }];
+  const at = (i: number) => all.slice(i * MAX_DECISION_QUESTIONS, (i + 1) * MAX_DECISION_QUESTIONS);
+  return Array.from({ length: Math.ceil(all.length / MAX_DECISION_QUESTIONS) }, (_, i) => ({ model, input, questions: at(i) }));
 }
 
 type RawAnswer = { type: string; name: string; choice?: string; probabilities?: { value: string | number; probability: number }[]; score?: number; probability?: number };
@@ -73,18 +77,29 @@ export function parseAnswers(data: { answers?: RawAnswer[]; usage?: { input_toke
   return { video, scenes: perScene, ...(typeof tokens === "number" ? { usage: { inputTokens: tokens } } : {}) };
 }
 
-/** One OpenAI Decisions request over the evidence. Returns only what the model answered, with no fallbacks. */
+/**
+ * OpenAI Decisions over the evidence: one request, or one per 400 questions after expanding. Returns only what the model
+ * answered, with no fallbacks.
+ */
 export function decide(evidence: Evidence, questions: DecisionQuestion[], options: OpenAIOptions & { model?: string } = {}): Promise<Decisions> {
   return stage("decide", async () => {
-    const body = decisionsRequest(evidence, questions, options.model); // validates before the key and before any request
+    const bodies = decisionsRequests(evidence, questions, options.model); // validates before the key and before any request
     const api = openai(options, "decide");
-    const res = await send(api.fetch, `${api.base}/decisions`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${api.key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(`decisions ${res.status}: ${data?.error?.message ?? "no body"}`);
-    return parseAnswers(data, questions, evidence.scenes);
+    const replies = await Promise.all(bodies.map(async (body) => {
+      const res = await send(api.fetch, `${api.base}/decisions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${api.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(`decisions ${res.status}: ${data?.error?.message ?? "no body"}`);
+      return data;
+    }));
+    const tokens = replies.map((d) => d?.usage?.input_tokens);
+    const merged = {
+      answers: replies.flatMap((d) => d?.answers ?? []),
+      ...(tokens.every((t) => typeof t === "number") ? { usage: { input_tokens: tokens.reduce((a, b) => a + b, 0) } } : {}),
+    };
+    return { ...parseAnswers(merged, questions, evidence.scenes), ...(bodies.length > 1 ? { requests: bodies.length } : {}) };
   });
 }

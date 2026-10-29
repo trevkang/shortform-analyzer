@@ -26,11 +26,10 @@ async function rebuilt(video: string, options: P.Options): Promise<Omit<Analysis
     schemaVersion: 2, ok: true, media: "video", duration, speech: "none",
     topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment, product: r.product,
     tags: described.tags, description: described.description, formatDescription: described.formatDescription,
-    scenes: spans.map((s, i) => ({
-      index: i, start: s.start, end: s.end, cut: s.cut !== false, role: r.scenes[i].role, footage: r.scenes[i].footage,
-      ...(r.scenes[i].showsProduct !== undefined ? { showsProduct: r.scenes[i].showsProduct } : {}),
-      spoken: spoken[i], onScreenText: described.onScreenText[i], frame: dataUrl(frames[i]),
-    })),
+    scenes: spans.map((s, i) => {
+      const { answers: _a, ...fields } = r.scenes[i]; // role, footage, showsProduct when it sells, subject when answered, the yes/no facets
+      return { index: i, start: s.start, end: s.end, cut: s.cut !== false, ...fields, spoken: spoken[i], onScreenText: described.onScreenText[i], frame: dataUrl(frames[i]) };
+    }),
     raw: { describe: out.output, decide: decisions },
   };
 }

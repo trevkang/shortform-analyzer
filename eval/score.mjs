@@ -44,6 +44,9 @@ for (const file of readdirSync(labelsDir).filter((f) => f.endsWith(".json")).sor
     count("role", s.role, got.scenes[i].role, sure(`${key}.role`) && sure(key), `${id} scene ${i + 1}`);
     count("footage", s.footage, got.scenes[i].footage, sure(`${key}.footage`) && sure(key), `${id} scene ${i + 1}`);
     if (want.sells !== "none" && got.sells !== "none") count("showsProduct", s.showsProduct, got.scenes[i].showsProduct, sure(`${key}.showsProduct`), `${id} scene ${i + 1}`);
+    for (const f of ["subject", "splitScreen", "overlay", "textBar", "captions", "message"]) {
+      if (s[f] !== undefined) count(f, s[f], got.scenes[i][f], sure(`${key}.${f}`), `${id} scene ${i + 1}`); // labels from before 0.5 have none
+    }
   });
   // Comments by id: a later run can read them in another order, or read others.
   const read = new Map((got.comments ?? []).map((c) => [c.id, c.kind]));

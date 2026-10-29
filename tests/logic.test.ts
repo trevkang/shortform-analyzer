@@ -2,8 +2,9 @@
 import { describe, expect, it } from "vitest";
 import { analyzeVideo } from "../src/index.js";
 import {
-  alignWords, checkQuestions, commentEvidence, commentList, commentQuestions, cueWords, describeRequest, dropHallucinations, parseComments,
-  parseDescribed, parseRecord, parseVtt, recordIntro, recordQuestions, type DecisionAnswer, type Decisions, type Span,
+  alignWords, checkQuestions, commentEvidence, commentList, commentQuestions, cueWords, describeRequest, dropHallucinations,
+  MAX_DECISION_QUESTIONS, MAX_SCENES, parseComments, parseDescribed, parseRecord, parseVtt, recordIntro, recordQuestions,
+  type DecisionAnswer, type Decisions, type Span,
 } from "../src/primitives.js";
 import { expandQuestions } from "../src/blocks/decide.js";
 import { fromWhisper } from "../src/blocks/transcribe.js";
@@ -41,6 +42,8 @@ describe("Example 5: missing or refused answers fall back", () => {
     expect(r.scenes.map((s) => s.footage)).toEqual(["screen", "other"]);
     expect(r).toMatchObject({ topic: "other", format: "listicle", sells: "none", asksForComment: false, product: "" });
     expect(r.scenes[0].showsProduct).toBeUndefined();
+    expect(r.scenes[1]).toMatchObject({ splitScreen: false, overlay: false, textBar: false, captions: false, message: false });
+    expect(r.scenes.map((s) => s.subject)).toEqual([undefined, undefined]); // no other to fall back to
     expect(r.answers).toBeUndefined();
   });
 
@@ -86,12 +89,14 @@ describe("Example 10: too many questions", () => {
     expect(!a.ok && a.error).toMatch(/the maximum is 20/);
     expect(f.calls).toEqual([]);
   });
-  it("the worst case fits one Decisions request", () => {
+  it("the record's own questions fit one Decisions request at the most scenes, and the worst case with yours two", () => {
     const questions = [
       ...Array.from({ length: 14 }, (_, i) => q(i)),
       ...Array.from({ length: 6 }, (_, i) => q(100 + i, "scene")),
     ];
-    expect(expandQuestions(recordQuestions({ questions }), 40).length).toBeLessThanOrEqual(400);
+    expect(expandQuestions(recordQuestions(), MAX_SCENES)).toHaveLength(4 + 9 * MAX_SCENES - 1);
+    expect(4 + 9 * MAX_SCENES - 1).toBeLessThanOrEqual(MAX_DECISION_QUESTIONS);
+    expect(expandQuestions(recordQuestions({ questions }), MAX_SCENES).length).toBeLessThanOrEqual(2 * MAX_DECISION_QUESTIONS);
   });
 });
 
@@ -165,6 +170,42 @@ describe("the sells question", () => {
     const shows = recordQuestions().find((q) => q.name === "shows_product")!;
     expect(shows.instructions).toMatch(/the item, its packaging or its screen, also while it is used or applied/);
     expect(describeRequest(2).instructions).toMatch(/several products: their names, separated by commas/);
+  });
+});
+
+describe("the scene facets", () => {
+  const FACETS = ["subject", "split_screen", "overlay", "text_bar", "captions", "message"];
+  it("asks every scene what fills its frame, how the frame is laid out and what its text does, in the words the eval measured", () => {
+    const asked = Object.fromEntries(recordQuestions().filter((q) => FACETS.includes(q.name)).map((q) => [q.name, q]));
+    expect(Object.keys(asked)).toEqual(FACETS);
+    for (const q of Object.values(asked)) expect(q).toMatchObject({ scope: "scene" });
+    expect(asked.subject.instructions).toBe("What fills most of the frame of scene {scene}. Answer by what is seen, whether it was filmed, drawn or recorded from a screen.");
+    expect((asked.subject as any).choices.map((c: any) => c.value)).toEqual(["face", "full_body", "people", "hands", "object", "animal", "place", "slide", "interface"]);
+    expect((asked.subject as any).choices[0].description).toBe("One person or character, from the waist up or closer. Example: talking to the camera; a selfie; a lip-sync; doing makeup.");
+    expect(asked.split_screen.instructions).toBe("Is the frame of scene {scene} split into panels, each with its own picture? Yes for a duet side by side; " +
+      "a reaction stacked over the original; before and after side by side; gameplay on top and a face below.");
+    expect(asked.overlay.instructions).toBe("Does a second picture sit on top of the main one in scene {scene}: a video, photo or screenshot in a window, " +
+      "or a person cut out over it? Yes for a facecam over gameplay; a reaction window in a corner; a green screen; a screenshot laid over a talking head.");
+    expect(asked.text_bar.instructions).toBe("Is the picture of scene {scene} shrunk to make room for a solid bar above or below it, with text in the bar? " +
+      "Yes for a meme clip under a white bar of text; a podcast clip under a headline bar.");
+    expect(asked.captions.instructions).toBe("Are the words heard in scene {scene} written on screen as subtitles? Yes for subtitles under a talking head; " +
+      "word-by-word captions of a voiceover; a song's lyrics on screen.");
+    expect(asked.message.instructions).toBe("Does scene {scene} show words its maker wrote for the viewer, other than the words heard: a hook, a title, " +
+      'a statement, a joke, a POV, a question, a list or a line of a story? Yes for "POV: you finally found an app that works"; ' +
+      '"3 mistakes everyone makes"; a headline bar over a podcast clip. Also when the same words stay on screen from the scene before.');
+  });
+
+  it("reads subject as the value chosen and the rest as yes from 0.5", () => {
+    const d: Decisions = {
+      video: {},
+      scenes: [
+        { subject: choice("hands"), split_screen: { probability: 0.5 }, overlay: { probability: 0.49 }, text_bar: { probability: 0.9 }, captions: { probability: 0.1 }, message: { probability: 0.6 } },
+        { subject: choice("other") },
+      ],
+    };
+    const r = parseRecord(d, { spans: spansAt([0, 2], 4), product: "" });
+    expect(r.scenes[0]).toMatchObject({ subject: "hands", splitScreen: true, overlay: false, textBar: true, captions: false, message: true });
+    expect(r.scenes[1].subject).toBeUndefined();
   });
 });
 

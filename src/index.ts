@@ -4,9 +4,9 @@ export { openaiDecider, openaiDescriber, openaiTranscriber, type EngineOptions }
 export { reportHtml } from "./pipeline/report.js";
 export { summarize } from "./pipeline/summary.js";
 export { PRICES, type Prices, type PricesOverride } from "./prices.js";
-export { COMMENT_KINDS, FOOTAGE, FORMATS, ROLES, SELLS, TOPICS } from "./record/taxonomy.js";
+export { COMMENT_KINDS, FOOTAGE, FORMATS, ROLES, SELLS, SUBJECTS, TOPICS } from "./record/taxonomy.js";
 export { STAGES } from "./types.js";
 export type {
   Analysis, Answer, Comment, CommentKind, Decider, Describer, Failed, Footage, Format, Input, Media, Options, PartialAnalysis,
-  Post, Question, Raw, Role, Scene, Sells, Speech, StageName, StageRun, Topic, Transcriber, Transcript, Usage,
+  Post, Question, Raw, Role, Scene, Sells, Speech, StageName, StageRun, Subject, Topic, Transcriber, Transcript, Usage,
 } from "./types.js";

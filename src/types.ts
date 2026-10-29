@@ -1,6 +1,6 @@
 // The types every layer shares (docs/concepts.md, docs/reference.md "Output").
 import type { Apinoa } from "@apinoa/sdk";
-import type { CommentKind, Footage, Format, Role, Sells, Topic } from "./record/taxonomy.js";
+import type { CommentKind, Footage, Format, Role, Sells, Subject, Topic } from "./record/taxonomy.js";
 import type { PricesOverride } from "./prices.js";
 
 /** A scene's span in seconds; `cut: false` when it continues the take before it (a long take split up). */
@@ -52,7 +52,10 @@ export type DecisionAnswer = { probability?: number; choice?: string; probs?: Pr
 export type Decisions = {
   video: Record<string, DecisionAnswer>;
   scenes: Record<string, DecisionAnswer>[];
+  /** Of every request together. */
   usage?: Usage;
+  /** How many requests the questions went out in, when more than one (400 questions each at most). */
+  requests?: number;
 };
 
 /** A describe request: instructions and the JSON Schema of the output (strict structured output). */
@@ -160,6 +163,13 @@ export type Scene = {
   footage: Footage;
   /** Only when `sells` isn't none. */
   showsProduct?: boolean;
+  /** What fills most of the frame; left out when it wasn't answered. */
+  subject?: Subject;
+  splitScreen: boolean;
+  overlay: boolean;
+  textBar: boolean;
+  captions: boolean;
+  message: boolean;
   spoken: string;
   onScreenText: string;
   /** The JPEG the model saw, as a data URL. */
@@ -208,4 +218,4 @@ export type PartialAnalysis = Partial<Omit<Analysis, "ok" | "scenes">> & { scene
 
 export type Failed = { ok: false; error: string; partial?: PartialAnalysis };
 
-export type { CommentKind, Footage, Format, Role, Sells, Topic };
+export type { CommentKind, Footage, Format, Role, Sells, Subject, Topic };

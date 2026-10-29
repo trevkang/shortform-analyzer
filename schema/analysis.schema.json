@@ -197,6 +197,11 @@
         "cut",
         "role",
         "footage",
+        "splitScreen",
+        "overlay",
+        "textBar",
+        "captions",
+        "message",
         "spoken",
         "onScreenText",
         "frame"
@@ -238,6 +243,35 @@
           ]
         },
         "showsProduct": {
+          "type": "boolean"
+        },
+        "subject": {
+          "type": "string",
+          "enum": [
+            "face",
+            "full_body",
+            "people",
+            "hands",
+            "object",
+            "animal",
+            "place",
+            "slide",
+            "interface"
+          ]
+        },
+        "splitScreen": {
+          "type": "boolean"
+        },
+        "overlay": {
+          "type": "boolean"
+        },
+        "textBar": {
+          "type": "boolean"
+        },
+        "captions": {
+          "type": "boolean"
+        },
+        "message": {
           "type": "boolean"
         },
         "spoken": {

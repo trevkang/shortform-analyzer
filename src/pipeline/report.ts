@@ -4,6 +4,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&l
 const sec = (t: number) => `${t.toFixed(1)}s`;
 const words = (s: string) => s.replace(/_/g, " ");
 const answer = (v: boolean | string) => (v === true ? "yes" : v === false ? "no" : v);
+const FACETS = { splitScreen: "split screen", overlay: "overlay", textBar: "text bar", captions: "captions", message: "message" } as const;
 
 /** A self-contained HTML page: the role strip, then one row per scene with its frame. */
 export function reportHtml(a: Analysis, title = "Video analysis"): string {
@@ -16,7 +17,8 @@ export function reportHtml(a: Analysis, title = "Video analysis"): string {
     <img src="${esc(s.frame)}" alt="Scene ${s.index + 1}">
     <div>
       <h3>Scene ${s.index + 1} <span>${when(s.start, s.end)}${s.cut ? "" : " · same take"}</span></h3>
-      <p class="tags"><b class="r-${s.role}">${s.role}</b> <i>${words(s.footage)}</i>${s.showsProduct ? " <i>· product shown</i>" : ""}</p>
+      <p class="tags"><b class="r-${s.role}">${s.role}</b> <i>${words(s.footage)}</i>${s.subject ? ` <i>· ${words(s.subject)}</i>` : ""}${
+        Object.entries(FACETS).filter(([f]) => s[f as keyof typeof FACETS]).map(([, w]) => ` <i>· ${w}</i>`).join("")}${s.showsProduct ? " <i>· product shown</i>" : ""}</p>
       <blockquote>${s.spoken ? esc(s.spoken) : `<em>${a.speech === "none" ? "words not known" : "nothing said"}</em>`}</blockquote>
       ${s.onScreenText ? `<p class="shown">On screen: ${esc(s.onScreenText)}</p>` : ""}
       ${s.answers && Object.keys(s.answers).length ? `<p class="shown">${Object.entries(s.answers).map(([k, v]) => `${esc(k)}: ${esc(answer(v))}`).join(" · ")}</p>` : ""}
