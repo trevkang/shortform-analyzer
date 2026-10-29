@@ -113,6 +113,13 @@ describe("eval/candidates.mjs", () => {
     const { CANDIDATE_QUESTIONS } = await evalModule("candidates.mjs");
     expect(expandQuestions([...recordQuestions(), ...CANDIDATE_QUESTIONS], MAX_SCENES)).toHaveLength(4 + 3 * MAX_SCENES - 1 + 6 * MAX_SCENES);
   });
+
+  it("asks subject by what fills most of the frame, and message of every scene its words stay on screen in, not only the first", async () => {
+    const { CANDIDATE_QUESTIONS } = await evalModule("candidates.mjs");
+    const asked = (name: string) => CANDIDATE_QUESTIONS.find((q: { name: string }) => q.name === name).instructions;
+    expect(asked("subject")).toMatch(/^What fills most of the frame of scene \{scene\}\./);
+    expect(asked("message")).toMatch(/ Also when the same words stay on screen from the scene before\.$/);
+  });
 });
 
 describe("eval/stability.mjs", () => {

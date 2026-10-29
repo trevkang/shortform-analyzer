@@ -4,7 +4,7 @@
 // and no exceptions, so a facet that keeps changing between runs points at its words, not at rules around them.
 
 const row = (test, example) => ({ test, example });
-const yesNo = (question, yes) => ({ question, yes });
+const yesNo = (question, yes, also = "") => ({ question, yes, also });
 
 export const CANDIDATES = {
   split_screen: yesNo(
@@ -20,7 +20,7 @@ export const CANDIDATES = {
     "a meme clip under a white bar of text; a podcast clip under a headline bar",
   ),
   subject: {
-    question: "What the picture of scene {scene} mainly shows. Answer by what is seen, whether it was filmed, drawn or recorded from a screen.",
+    question: "What fills most of the frame of scene {scene}. Answer by what is seen, whether it was filmed, drawn or recorded from a screen.",
     about: {
       face: row("One person or character, from the waist up or closer", "talking to the camera; a selfie; a lip-sync; doing makeup"),
       full_body: row("One person or character, head to toe", "a dance; an outfit check; a workout"),
@@ -40,6 +40,8 @@ export const CANDIDATES = {
   message: yesNo(
     "Does scene {scene} show words its maker wrote for the viewer, other than the words heard: a hook, a title, a statement, a joke, a POV, a question, a list or a line of a story?",
     `"POV: you finally found an app that works"; "3 mistakes everyone makes"; a headline bar over a podcast clip`,
+    // Without it, a line that stays on screen was a message only in the scene it first showed in (41% of the later scenes).
+    "Also when the same words stay on screen from the scene before.",
   ),
 };
 
@@ -63,4 +65,4 @@ export function candidateValue(name, answer) {
 /** The candidates as decide questions, asked of every scene. */
 export const CANDIDATE_QUESTIONS = Object.entries(CANDIDATES).map(([name, c]) => (c.about
   ? { type: "choice", name, scope: "scene", instructions: c.question, choices: Object.keys(c.about).map((value) => ({ value, description: candidateText(name, value) })) }
-  : { type: "predicate", name, scope: "scene", instructions: `${c.question} Yes for ${c.yes}.` }));
+  : { type: "predicate", name, scope: "scene", instructions: `${c.question} Yes for ${c.yes}.${c.also ? ` ${c.also}` : ""}` }));
