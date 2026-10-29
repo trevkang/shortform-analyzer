@@ -40,6 +40,23 @@ frame per scene and the words in each scene. Don't look at the record while labe
 - A `product` matches when most of the reference's names are found in the analysis's, a name being found when either
   contains the other. Names are split on commas and "and", ignoring case. It is scored only when both sides sell.
 
+## How steady each field is
+
+`repeat.mjs` asks each analysis's decide request again, `--runs` times, with the candidate scene facets of
+[`candidates.mjs`](candidates.mjs) in the same request: `voice`, `layout`, `shot` and `text`, which aren't in the record.
+The evidence is the analysis's own, so what changes between runs is the model. `stability.mjs` reports per field how
+often every run agrees, how often two runs agree and the values that trade places, and with labels each run's accuracy
+and the majority's. A field whose answer keeps changing on the same evidence has values that overlap.
+
+```bash
+node eval/repeat.mjs out/ --runs 5       # OPENAI_API_KEY; writes out/<id>.analysis/repeats.json
+node eval/stability.mjs out/ labels/     # the table, then every miss of the majority
+node eval/stability.mjs out/ labels/ --json
+```
+
+A candidate's label goes in its scene, next to `role` and `footage`: `"voice": "off_frame"`, `"layout": "full"`,
+`"shot": "app"`, `"text": "captions"`. `role` is compared from scene 2, since scene 1 is the hook by rule.
+
 ## Results, 0.4.0
 
 The release build on 23 public TikToks (20 videos of 6 to 95 s and 3 photo posts, 11 with TikTok subtitles, from app,
