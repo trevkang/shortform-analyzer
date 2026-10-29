@@ -152,6 +152,12 @@ describe("the sells question", () => {
     expect(sells.instructions).toMatch(/Showing or using a product isn't enough, unless the post has one of TikTok's commercial tags or the product's own account posted it\./);
     expect(sells.instructions).not.toMatch(/not whether there is one/);
   });
+
+  it("counts the product's screen, packaging and use as shown; describe lists several products by name", () => {
+    const shows = recordQuestions().find((q) => q.name === "shows_product")!;
+    expect(shows.instructions).toMatch(/the item, its packaging or its screen, also while it is used or applied/);
+    expect(describeRequest(2).instructions).toMatch(/several products: their names, separated by commas/);
+  });
 });
 
 describe("comments", () => {

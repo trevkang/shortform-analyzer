@@ -28,7 +28,7 @@ input only: none of it is copied into a field, and the post itself is kept in `r
 | `format` | decide | `tutorial` · `listicle` · `before_after` · `review` · `storytime` · `skit` · `performance` · `reaction` · `highlight` · `interview` · `vlog` · `talking_head` · `other` |
 | `sells` | decide | `none` · `software` · `physical_goods` · `service` · `digital_content` · `other` |
 | `asksForComment` | decide | yes · no |
-| `product` | describe | the name of the product the video pitches; empty when it pitches none |
+| `product` | describe | the name of the product the video pitches, or their names, separated by commas; empty when it pitches none |
 | `tags` | describe | 5–10 single words |
 | `description` | describe | what the video is about, in a few sentences |
 | `formatDescription` | describe | how it is made, so someone could remake it about something else |
@@ -231,8 +231,9 @@ over an app use it.
 
 ### showsProduct
 
-Yes when the product the video sells is seen or named in the scene. Asked for every scene, kept only when `sells` isn't
-`none`. It gives where and how often the product appears.
+Yes when the product the video sells is in the scene: seen (the item, its packaging or its screen, also while it is used
+or applied) or named. Asked for every scene, kept only when `sells` isn't `none`. It gives where and how often the product
+appears.
 
 ### onScreenText
 

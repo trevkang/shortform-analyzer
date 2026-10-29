@@ -67,7 +67,8 @@ export const RECORD_QUESTIONS: DecisionQuestion[] = [
   },
   {
     type: "predicate", name: "shows_product", scope: "scene",
-    instructions: "Is the product the video sells seen or named in scene {scene}? No when the video sells nothing.",
+    instructions: "Is the product the video sells in scene {scene}: seen (the item, its packaging or its screen, also while it is used or applied) " +
+      "or named? No when the video sells nothing.",
   },
 ];
 
