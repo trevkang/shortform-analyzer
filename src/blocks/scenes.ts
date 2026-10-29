@@ -4,7 +4,7 @@ import { ffmpeg, run, stage } from "./run.js";
 
 export const SCENE_THRESHOLD = 0.3; // ffmpeg scene score that counts as a cut
 export const MIN_SCENE = 0.4; // seconds: shorter scenes are transitions (PySceneDetect-style min shot length)
-export const MAX_TAKE = 5; // seconds: a longer take is split, so one-take videos still get beats
+export const MAX_TAKE = 5; // seconds: a longer take is split, so a one-take video isn't one scene, all of it hook
 export const MAX_SCENES = 40; // one Decisions request; past this, the shortest neighbours merge
 
 export type SceneRules = { minScene?: number; maxTake?: number; maxScenes?: number };

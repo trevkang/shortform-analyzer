@@ -1,35 +1,52 @@
-// Inputs and the checks that come before any work: Examples 9 and 10.
+// Example 9 and the input kinds.
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { analyzeVideo, screenVideo } from "../src/index.js";
-import { resolveInput } from "../src/primitives.js";
-import { fakeOpenAI } from "./helpers.js";
+import { analyzeVideo } from "../src/index.js";
+import { resolveInput, tiktokPostId } from "../src/primitives.js";
+import { fake, KEYS, POST_ID, TIKTOK_URL, tiktokPost } from "./helpers.js";
 
-const many = (n: number) => Array.from({ length: n }, (_, i) => ({ name: `q${i}`, question: "Is it red?" }));
-
-describe("inputs", () => {
-  it("refuses a URL and says to download the video first (Example 9)", async () => {
-    const r = await analyzeVideo("https://example.com/video.mp4", { openaiApiKey: "k" });
-    expect(r).toEqual({ ok: false, error: "input: URLs are not supported; download the video first and pass the file" });
+describe("input", () => {
+  it("Example 9: a URL that isn't a TikTok post is refused before any request", async () => {
+    for (const url of ["https://example.com/video.mp4", "https://vm.tiktok.com/ZMabc123/", "https://www.tiktok.com/@creator"]) {
+      const f = fake();
+      const a = await analyzeVideo(url, { ...KEYS, fetch: f.fetchFn });
+      expect(a).toEqual({ ok: false, error: "input: only TikTok post URLs are read; download other videos and pass the file" });
+      expect(f.calls).toEqual([]);
+    }
   });
 
-  it("refuses more than 20 questions (Example 10), and bad names", async () => {
-    const { fetchFn, calls } = fakeOpenAI();
-    expect(await analyzeVideo("clip.mp4", { openaiApiKey: "k", fetch: fetchFn, questions: many(25) }))
-      .toEqual({ ok: false, error: "questions: 25 questions; the maximum is 20" });
-    expect((await screenVideo("clip.mp4", many(21), { openaiApiKey: "k" })).ok).toBe(false);
-    const bad = await analyzeVideo("clip.mp4", { openaiApiKey: "k", questions: [{ name: "Face!", question: "?" }] });
-    expect(!bad.ok && bad.error).toMatch(/must match/);
-    expect(calls).toHaveLength(0);
+  it("reads the post id from a TikTok post URL", () => {
+    expect(tiktokPostId(TIKTOK_URL)).toBe(POST_ID);
+    expect(tiktokPostId(`https://m.tiktok.com/@a/photo/123?lang=en`)).toBe("123");
+    expect(tiktokPostId("https://www.tiktok.com/@a")).toBeUndefined();
+    expect(tiktokPostId("https://tiktok.com.evil.test/@a/video/1")).toBeUndefined();
+    expect(tiktokPostId("not a url")).toBeUndefined();
   });
 
-  it("writes a Buffer to a temp file that cleanup removes, and leaves a path alone", async () => {
-    const r = await resolveInput(Buffer.from("bytes"));
-    expect(existsSync(r.path)).toBe(true);
-    await r.cleanup();
-    expect(existsSync(r.path)).toBe(false);
-    const p = await resolveInput("/some/clip.mp4");
-    expect(p.path).toBe("/some/clip.mp4");
-    await p.cleanup();
+  it("resolves each kind", async () => {
+    expect(await resolveInput(TIKTOK_URL)).toMatchObject({ kind: "tiktok", postId: POST_ID });
+    expect(await resolveInput({ post: tiktokPost({ id: "42" }) })).toMatchObject({ kind: "tiktok", postId: "42" });
+    expect(await resolveInput("clip.mp4")).toMatchObject({ kind: "file", path: "clip.mp4" });
+    const bytes = await resolveInput(Buffer.from("not a video"));
+    if (bytes.kind !== "file") throw new Error("expected a file");
+    expect(existsSync(bytes.path)).toBe(true);
+    await bytes.cleanup();
+    expect(existsSync(bytes.path)).toBe(false);
+    await expect(resolveInput({ post: {} as any })).rejects.toThrow(/^input: the post has no id/);
+    await expect(resolveInput("" as any)).rejects.toThrow(/^input:/);
+  });
+
+  it("a TikTok input needs the apinoa key, checked before any request", async () => {
+    const f = fake();
+    const a = await analyzeVideo(TIKTOK_URL, { openaiApiKey: "k", apinoaApiKey: "", fetch: f.fetchFn });
+    expect(a).toEqual({ ok: false, error: "source: APINOA_API_KEY is not set (set it, or pass apinoaApiKey)" });
+    expect(f.calls).toEqual([]);
+  });
+
+  it("a post apinoa can't find fails at source", async () => {
+    const f = fake({ postStatus: 404 });
+    const a = await analyzeVideo(TIKTOK_URL, { ...KEYS, fetch: f.fetchFn });
+    expect(a).toEqual({ ok: false, error: "source: apinoa post 404: not found (deleted, private, or a wrong id)" });
+    expect(f.calls[0].headers?.get("x-api-key")).toBe("a");
   });
 });

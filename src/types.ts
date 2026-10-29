@@ -1,48 +1,45 @@
 // The types every layer shares (docs/concepts.md, docs/reference.md "Output").
-
-export const BEATS = ["hook", "setup", "value", "proof", "payoff", "cta"] as const;
-export type Beat = (typeof BEATS)[number];
-
-export const LEVERS = ["curiosity", "pattern_interrupt", "relatable", "demonstration", "social_proof", "emotion", "direct_ask", "none"] as const;
-export type Lever = (typeof LEVERS)[number];
-
-export const FORMATS = [
-  "meme", "skit", "product_demo", "tutorial", "review", "storytime",
-  "before_after", "unboxing", "behind_the_scenes", "talking_head", "other",
-] as const;
-export type Format = (typeof FORMATS)[number];
-
-export type Goal = "conversion" | "awareness";
-
-/** How the video is made: what someone would need to make one like it. */
-export const PRODUCTIONS = ["on_camera_person", "screen_recording", "hands_only", "broll_voiceover", "text_only", "animation", "mixed"] as const;
-export type Production = (typeof PRODUCTIONS)[number];
-
-export const VOICES = ["on_camera_speech", "voiceover", "none", "music_only"] as const;
-export type Voice = (typeof VOICES)[number];
-
-/** A caller's own yes/no question about what is in the video; it becomes the `q_<name>` predicate. */
-export type Question = { name: string; question: string };
+import type { Apinoa } from "@apinoa/sdk";
+import type { CommentKind, Footage, Format, Role, Sells, Topic } from "./record/taxonomy.js";
+import type { PricesOverride } from "./prices.js";
 
 /** A scene's span in seconds; `cut: false` when it continues the take before it (a long take split up). */
 export type Span = { start: number; end: number; cut?: false };
 
-/** One transcribed word with its time in seconds. */
+/** One word with its time in seconds. */
 export type Word = { word: string; start: number; end: number };
 
-export type Transcript = { text: string; words: Word[]; language?: string };
+/** A run of words with one start and end time: a subtitle cue, or a transcript segment. */
+export type Cue = { start: number; end: number; text: string; words?: Word[] };
+
+/** A transcript segment, with whisper's two numbers when the transcriber gives them. */
+export type Segment = Cue & { noSpeechProb?: number; avgLogprob?: number };
+
+/** What a request used. `costUsd`, when an engine gives it, is the stage's cost as it is. `serviceTier` is set when it ran on flex. */
+export type Usage = { inputTokens?: number; outputTokens?: number; audioSec?: number; costUsd?: number; serviceTier?: "flex" };
+
+export type Transcript = { segments: Segment[]; language?: string; usage?: Usage };
+
+/** The `data` of an apinoa post read (https://apinoa.com). Kept as it came; the package reads only some of it. */
+export type Post = Apinoa.Post;
 
 /** A probability per option, as Decisions returns them. */
 export type Probs = Record<string, number>;
 
-// ---- Layer 1: evidence and decisions ----
+// ---- Layer 1: evidence, describe and decide ----
 
 export type EvidenceItem = { type: "text"; text: string } | { type: "image"; image: Buffer; mime?: string };
 
-/** What the decision model reads, in order. `scenes` is how many scenes it covers (0 for frames only). */
+/** What a model reads, in order. `scenes` is how many items `scene` questions are asked about (0 for none). */
 export type Evidence = { intro: string; items: EvidenceItem[]; scenes: number };
 
-type QuestionBase = { name: string; instructions: string; scope?: "video" | "scene" };
+type QuestionBase = {
+  name: string;
+  instructions: string;
+  scope?: "video" | "scene";
+  /** For a `scene` question: the first scene it is asked about, from 0. Default 0. */
+  from?: number;
+};
 export type DecisionQuestion =
   | (QuestionBase & { type: "predicate" })
   | (QuestionBase & { type: "choice"; choices: { value: string; description?: string }[] })
@@ -55,8 +52,26 @@ export type DecisionAnswer = { probability?: number; choice?: string; probs?: Pr
 export type Decisions = {
   video: Record<string, DecisionAnswer>;
   scenes: Record<string, DecisionAnswer>[];
-  inputTokens?: number;
+  usage?: Usage;
 };
+
+/** A describe request: instructions and the JSON Schema of the output (strict structured output). */
+export type DescribeRequest = { name: string; instructions: string; schema: Record<string, unknown> };
+
+// ---- Engines: what computes a stage ----
+
+export interface Transcriber {
+  id: string;
+  transcribe(audio: Buffer): Promise<Transcript>;
+}
+export interface Describer {
+  id: string;
+  describe(evidence: Evidence, request: DescribeRequest): Promise<{ output: unknown; usage?: Usage }>;
+}
+export interface Decider {
+  id: string;
+  decide(evidence: Evidence, questions: DecisionQuestion[]): Promise<Decisions>;
+}
 
 // ---- Options ----
 
@@ -68,6 +83,12 @@ export type OpenAIOptions = {
   fetch?: typeof fetch;
 };
 
+export type ApinoaOptions = {
+  /** Default: env APINOA_API_KEY. */
+  apinoaApiKey?: string;
+  fetch?: typeof fetch;
+};
+
 export type FfmpegOptions = {
   /** Default: ffmpeg. */
   ffmpegPath?: string;
@@ -75,56 +96,116 @@ export type FfmpegOptions = {
   ffprobePath?: string;
 };
 
-export type Options = OpenAIOptions & FfmpegOptions & {
-  /** Up to 20 yes/no questions about the video. */
+/** A caller's own question about the video, or about each scene; yes/no unless it has choices. */
+export type Question = { name: string; question: string; scope?: "video" | "scene"; choices?: string[] };
+
+/** A yes/no answer, or the chosen value. */
+export type Answer = boolean | string;
+
+/** A video file (path or bytes), a TikTok post URL, or a post already read through apinoa. */
+export type Input = string | Buffer | { post: Post };
+
+export type Options = OpenAIOptions & ApinoaOptions & FfmpegOptions & {
+  /** Off by default. `true` is whisper-1; or pass your own. Used only when the post has no ASR subtitle track. */
+  transcribe?: boolean | Transcriber;
+  describer?: Describer;
+  /** Run the default describer on OpenAI's flex tier: half its price, slower. Ignored with your own `describer`. */
+  flex?: boolean;
+  decider?: Decider;
+  /** Up to 20, at most 6 of them per scene. */
   questions?: Question[];
+  /** Read the comments of a TikTok post that sells or asks for a comment. Default true. */
+  comments?: boolean;
+  /** An earlier result, or a failure's `partial`: stages whose version matches are taken from it. */
+  reuse?: Analysis | PartialAnalysis;
+  prices?: PricesOverride;
 };
 
-// ---- Layer 2 and 3: the short-form analysis ----
+// ---- Layer 3: the record ----
 
-export type Scene = Span & {
+export type Media = "video" | "photos";
+export type Speech = "subtitles" | "transcription" | "none";
+
+export const STAGES = ["source", "scenes", "frames", "speech", "describe", "decide", "comments"] as const;
+export type StageName = (typeof STAGES)[number];
+
+/** One stage of one run: its version, what it used and what it cost. */
+export type StageRun = {
+  version: string;
+  ms: number;
+  costUsd: number;
+  /** Taken from `reuse`; the numbers are from the run that made it. */
+  reused?: true;
+  requests?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  images?: number;
+  audioSec?: number;
+  apinoaCalls?: number;
+  /** `describe` only: the request ran on OpenAI's flex tier, at its price. */
+  serviceTier?: "flex";
+  /** `source` only: `tiktok:<post id>`, or `sha256:<hex>` of a file. */
+  video?: string;
+  /** `speech` and `comments` only: why they are empty when they failed. */
+  error?: string;
+};
+
+export type Scene = {
   index: number;
-  /** The scene's middle frame, a JPEG data URL (at most 160 px; the model sees 512 px). */
-  thumbnail: string;
-  transcript: string;
-  beat: Beat;
-  beatProbs: Probs;
-  lever: Lever;
-  leverProbs: Probs;
-  /** 0 (viewers scroll away) to 4 (nearly impossible to scroll away), probability-weighted. */
-  hold: number;
-  /** Probability the scene shows text on screen. */
-  textOnScreen?: number;
+  start: number;
+  end: number;
+  /** false when the scene continues the take before it. */
+  cut: boolean;
+  role: Role;
+  footage: Footage;
+  /** Only when `sells` isn't none. */
+  showsProduct?: boolean;
+  spoken: string;
+  onScreenText: string;
+  /** The JPEG the model saw, as a data URL. */
+  frame: string;
+  answers?: Record<string, Answer>;
 };
 
-/** Consecutive scenes with the same beat. */
-export type Section = { beat: Beat; start: number; end: number; scenes: number[]; transcript: string };
+/** A comment read, with its `kind`. `id` is TikTok's, as in `raw.comments`. */
+export type Comment = { id: string; text: string; likes: number; kind: CommentKind };
+
+/** What each stage got from outside the package, before any rule. */
+export type Raw = {
+  post?: Post;
+  subtitles?: string;
+  transcript?: Transcript;
+  describe?: unknown;
+  decide?: Decisions;
+  comments?: Apinoa.CommentPage;
+  commentsDecide?: Decisions;
+};
 
 export type Analysis = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   ok: true;
+  media: Media;
   duration: number;
-  scenes: Scene[];
-  sections: Section[];
+  speech: Speech;
+  topic: Topic;
   format: Format;
-  formatProbs: Probs;
-  goal: Goal;
-  /** Probability the video tries to get the viewer to buy, sign up or click. */
-  sells: number;
-  production: Production;
-  voice: Voice;
-  /** Per question asked, the probability the answer is yes. */
-  answers?: Record<string, number>;
-  transcript: string;
-  language?: string;
-  /** Why the transcript is empty, when it is. */
-  transcriptError?: string;
-  inputTokens?: number;
+  sells: Sells;
+  asksForComment: boolean;
+  product: string;
+  tags: string[];
+  description: string;
+  formatDescription: string;
+  scenes: Scene[];
+  comments?: Comment[];
+  answers?: Record<string, Answer>;
+  stages: Partial<Record<StageName, StageRun>>;
+  costUsd: number;
+  raw: Raw;
 };
 
-/** How the video is made, and the caller's questions: what the screen check returns. */
-export type Making = { production: Production; voice: Voice; answers: Record<string, number> };
+/** The stages that finished before a failure, in the shape of an Analysis. */
+export type PartialAnalysis = Partial<Omit<Analysis, "ok" | "scenes">> & { scenes?: Partial<Scene>[] };
 
-export type Screen = { ok: true } & Making;
+export type Failed = { ok: false; error: string; partial?: PartialAnalysis };
 
-export type Failed = { ok: false; error: string };
+export type { CommentKind, Footage, Format, Role, Sells, Topic };

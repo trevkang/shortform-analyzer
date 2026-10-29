@@ -1,18 +1,16 @@
 #!/usr/bin/env node
-// npx shortform-analyzer analyze <file> | screen <file> | mcp
+// npx shortform-analyzer analyze <file | TikTok URL> | mcp
 import { basename, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { Question } from "./types.js";
 import { VERSION } from "./version.js";
 
 const USAGE = `Usage:
-  shortform-analyzer analyze <file> [--out <dir>] [--question name="question"]... [--json]
-  shortform-analyzer screen  <file> --question name="question"...
+  shortform-analyzer analyze <file | TikTok URL> [--out <dir>] [--transcribe] [--flex] [--no-comments] [--question name="question"]... [--json]
   shortform-analyzer mcp
 
-Key: OPENAI_API_KEY.
+Keys: OPENAI_API_KEY, and APINOA_API_KEY for a TikTok URL.
 Docs: https://github.com/trevkang/shortform-analyzer`;
-
 
 class Usage extends Error {}
 
@@ -22,11 +20,6 @@ export function parseQuestion(arg: string): Question {
   return { name: arg.slice(0, i).trim(), question: arg.slice(i + 1).trim().replace(/^(["'])(.*)\1$/, "$2") };
 }
 
-/** Where `analyze` writes by default: next to the file. */
-export function defaultOut(input: string): string {
-  return resolve(`${input}.analysis`);
-}
-
 async function main(argv: string[]): Promise<number> {
   let parsed;
   try {
@@ -34,6 +27,7 @@ async function main(argv: string[]): Promise<number> {
       args: argv, allowPositionals: true,
       options: {
         out: { type: "string" }, question: { type: "string", multiple: true }, json: { type: "boolean" },
+        transcribe: { type: "boolean" }, flex: { type: "boolean" }, "no-comments": { type: "boolean" },
         help: { type: "boolean", short: "h" }, version: { type: "boolean", short: "v" },
       },
     });
@@ -51,7 +45,7 @@ async function main(argv: string[]): Promise<number> {
     await runStdio();
     return -1; // keep running
   }
-  if ((cmd !== "analyze" && cmd !== "screen") || !input || rest.length) {
+  if (cmd !== "analyze" || !input || rest.length) {
     console.error(USAGE);
     return 2;
   }
@@ -63,28 +57,15 @@ async function main(argv: string[]): Promise<number> {
     return 2;
   }
 
-  if (cmd === "screen") {
-    if (!questions.length) { console.error(`screen needs at least one --question\n\n${USAGE}`); return 2; }
-    const { screenVideo } = await import("./pipeline/screen.js");
-    const r = await screenVideo(input, questions);
-    if (!r.ok) { console.error(r.error); return 1; }
-    console.log(JSON.stringify(r, null, 2));
-    return 0;
-  }
-
-  const { analyzeWithFrames } = await import("./pipeline/analyze.js");
-  const { writeOutput } = await import("./pipeline/files.js");
+  const { analyzeToFolder, defaultOut, lean } = await import("./pipeline/files.js");
   const { summarize } = await import("./pipeline/summary.js");
-  const r = await analyzeWithFrames(input, { questions });
-  if (!r.ok) { console.error(r.error); return 1; }
   const dir = values.out ? resolve(values.out) : defaultOut(input);
-  try {
-    await writeOutput(dir, r.analysis, r.frames, { title: basename(input) });
-  } catch (e) {
-    console.error(`writing ${dir}: ${(e as Error).message}`);
-    return 1;
-  }
-  if (values.json) console.log(JSON.stringify(r.analysis, null, 2));
+  const r = await analyzeToFolder(input, dir, {
+    questions, title: basename(input), ...(values.transcribe ? { transcribe: true } : {}), ...(values.flex ? { flex: true } : {}),
+    ...(values["no-comments"] ? { comments: false } : {}),
+  });
+  if ("ok" in r) { console.error(r.error); return 1; }
+  if (values.json) console.log(JSON.stringify(lean(r.analysis), null, 2));
   else console.log(`${summarize(r.analysis)}\n\nWrote ${dir}/ (analysis.json, report.html, frames/, sheet.jpg)`);
   return 0;
 }

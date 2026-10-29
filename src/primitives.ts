@@ -1,19 +1,30 @@
 // shortform-analyzer/primitives: Layers 1 and 2 (docs/concepts.md). Experimental: a minor version may change these.
 
 // Layer 1 · building blocks
-export { resolveInput, type ResolvedInput } from "./blocks/input.js";
+export { resolveInput, tiktokPostId, type ResolvedInput } from "./blocks/input.js";
+export {
+  BROWSER_HEADERS, COMMENTS_LIMIT, download, fetchSubtitles, postMedia, readComments, readPost, type PostMedia,
+} from "./blocks/apinoa.js";
 export { probe } from "./blocks/probe.js";
 export { detectScenes, MAX_SCENES, MAX_TAKE, MIN_SCENE, SCENE_THRESHOLD, type SceneOptions, type SceneRules } from "./blocks/scenes.js";
-export { extractFrames, FRAME_SIDE, grabFrame, THUMB_SIDE, type FrameOptions } from "./blocks/frames.js";
-export { extractAudio, transcribe, TRANSCRIBE_MODEL } from "./blocks/transcribe.js";
+export { extractFrames, FRAME_SIDE, grabFrame, photoFrame, type FrameOptions } from "./blocks/frames.js";
+export { dropHallucinations, extractAudio, transcribe, TRANSCRIBE_MODEL } from "./blocks/transcribe.js";
+export { cueWords, parseVtt } from "./blocks/vtt.js";
 export { alignWords } from "./blocks/align.js";
-export { frameEvidence, SCENE_INTRO, sceneEvidence } from "./blocks/evidence.js";
+export { SCENE_INTRO, sceneEvidence, textEvidence, type SceneEvidenceOptions, type WordsFrom } from "./blocks/evidence.js";
+export { describe, DESCRIBE_EFFORT, DESCRIBE_MODEL, FLEX_MAX_WAIT_MS, FLEX_TIMEOUT_MS, type DescribeOptions } from "./blocks/describe.js";
 export { decide, DECISIONS_MODEL, MAX_DECISION_QUESTIONS } from "./blocks/decide.js";
 
-// Layer 2 · short-form preset
-export { checkQuestions, makingQuestions, MAX_QUESTIONS, SHORTFORM_INTRO, shortformQuestions } from "./shortform/questions.js";
-export { parseMaking, parseShortform, type SceneLabels, type ShortformLabels } from "./shortform/parse.js";
-export { sectionsOf } from "./shortform/sections.js";
-export { BEAT_TEXT, FORMAT_TEXT, HOLD_LEVELS, LEVER_TEXT, PRODUCTION_TEXT, VOICE_TEXT } from "./shortform/labels.js";
+// Layer 2 · the record
+export {
+  COMMENT_KINDS, FOOTAGE, FORMATS, ROLES, SELLS, TAXONOMY, TOPICS, valueText, type Field, type ValueText,
+} from "./record/taxonomy.js";
+export {
+  checkQuestions, MAX_CHOICES, MAX_QUESTIONS, MAX_SCENE_QUESTIONS, RECORD_QUESTIONS, recordQuestions,
+} from "./record/questions.js";
+export { recordIntro, type RecordFacts } from "./record/intro.js";
+export { describeRequest, MAX_TAGS, parseDescribed, type Described } from "./record/describe.js";
+export { HOOK_BEFORE, parseRecord, type RecordFields, type SceneFields } from "./record/parse.js";
+export { commentEvidence, commentList, commentQuestions, commentsWanted, parseComments, type CommentText } from "./record/comments.js";
 
 export * from "./types.js";

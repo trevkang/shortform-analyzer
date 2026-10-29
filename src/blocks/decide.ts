@@ -1,5 +1,6 @@
 import type { DecisionAnswer, DecisionQuestion, Decisions, Evidence, OpenAIOptions, Probs } from "../types.js";
-import { openai, stage } from "./run.js";
+import { responsesContent } from "./describe.js";
+import { openai, send, stage } from "./run.js";
 
 export const DECISIONS_MODEL = "gpt-6-luna";
 export const MAX_DECISION_QUESTIONS = 400;
@@ -14,14 +15,16 @@ function wire(q: DecisionQuestion, name: string, instructions: string): Wire {
   return out;
 }
 
+const asked = (q: DecisionQuestion, i: number) => q.scope === "scene" && i >= (q.from ?? 0);
+
 /** The questions as sent: each scene's `scene` questions (scene by scene), then the `video` ones. Throws on a bad set. */
 export function expandQuestions(questions: DecisionQuestion[], scenes: number): Wire[] {
   const sceneQs = questions.filter((q) => q.scope === "scene");
   const videoQs = questions.filter((q) => q.scope !== "scene");
-  if (sceneQs.length && !scenes) throw new Error("decide: scene questions need scene evidence (sceneEvidence)");
+  if (sceneQs.length && !scenes) throw new Error("decide: scene questions need scene evidence (sceneEvidence or textEvidence)");
   const out: Wire[] = [];
   for (let i = 0; i < scenes; i++) {
-    for (const q of sceneQs) out.push(wire(q, `${q.name}_${i}`, q.instructions.replaceAll("{scene}", String(i + 1))));
+    for (const q of sceneQs) if (asked(q, i)) out.push(wire(q, `${q.name}_${i}`, q.instructions.replaceAll("{scene}", String(i + 1))));
   }
   for (const q of videoQs) out.push(wire(q, q.name, q.instructions));
   for (const q of questions) if (!NAME.test(q.name)) throw new Error(`decide: question name "${q.name}" must match [a-z0-9_]+`);
@@ -37,14 +40,8 @@ export function expandQuestions(questions: DecisionQuestion[], scenes: number): 
 }
 
 /** The request body for OpenAI Decisions. */
-export function decisionsRequest(evidence: Evidence, questions: DecisionQuestion[]) {
-  const content: unknown[] = [{ type: "input_text", text: evidence.intro }];
-  for (const item of evidence.items) {
-    content.push(item.type === "text"
-      ? { type: "input_text", text: item.text }
-      : { type: "input_image", image_url: `data:${item.mime ?? "image/jpeg"};base64,${item.image.toString("base64")}` });
-  }
-  return { model: DECISIONS_MODEL, input: [{ role: "user", content }], questions: expandQuestions(questions, evidence.scenes) };
+export function decisionsRequest(evidence: Evidence, questions: DecisionQuestion[], model = DECISIONS_MODEL) {
+  return { model, input: [{ role: "user", content: responsesContent(evidence) }], questions: expandQuestions(questions, evidence.scenes) };
 }
 
 type RawAnswer = { type: string; name: string; choice?: string; probabilities?: { value: string | number; probability: number }[]; score?: number; probability?: number };
@@ -69,19 +66,19 @@ export function parseAnswers(data: { answers?: RawAnswer[]; usage?: { input_toke
   for (const q of questions) if (q.scope !== "scene") put(video, q, q.name);
   const perScene = Array.from({ length: scenes }, (_, i) => {
     const s: Record<string, DecisionAnswer> = {};
-    for (const q of questions) if (q.scope === "scene") put(s, q, `${q.name}_${i}`);
+    for (const q of questions) if (asked(q, i)) put(s, q, `${q.name}_${i}`);
     return s;
   });
   const tokens = data.usage?.input_tokens;
-  return { video, scenes: perScene, ...(typeof tokens === "number" ? { inputTokens: tokens } : {}) };
+  return { video, scenes: perScene, ...(typeof tokens === "number" ? { usage: { inputTokens: tokens } } : {}) };
 }
 
 /** One OpenAI Decisions request over the evidence. Returns only what the model answered, with no fallbacks. */
-export function decide(evidence: Evidence, questions: DecisionQuestion[], options: OpenAIOptions = {}): Promise<Decisions> {
+export function decide(evidence: Evidence, questions: DecisionQuestion[], options: OpenAIOptions & { model?: string } = {}): Promise<Decisions> {
   return stage("decide", async () => {
-    const body = decisionsRequest(evidence, questions); // validates before the key and before any request
+    const body = decisionsRequest(evidence, questions, options.model); // validates before the key and before any request
     const api = openai(options, "decide");
-    const res = await api.fetch(`${api.base}/decisions`, {
+    const res = await send(api.fetch, `${api.base}/decisions`, {
       method: "POST",
       headers: { Authorization: `Bearer ${api.key}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
