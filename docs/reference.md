@@ -282,7 +282,7 @@ Illustrative values, not a real video (`frame` and `raw` cut short):
     "scenes": { "version": "1", "ms": 410, "costUsd": 0 },
     "frames": { "version": "1", "ms": 120, "costUsd": 0 },
     "speech": { "version": "1:subtitles", "ms": 90, "costUsd": 0 },
-    "describe": { "version": "1:gpt-6-luna", "ms": 3800, "costUsd": 0.00043, "requests": 1, "inputTokens": 2900, "outputTokens": 280, "images": 3 },
+    "describe": { "version": "2:gpt-6-luna", "ms": 3800, "costUsd": 0.00043, "requests": 1, "inputTokens": 2900, "outputTokens": 280, "images": 3 },
     "decide": { "version": "1:gpt-6-luna", "ms": 900, "costUsd": 0.00034, "requests": 1, "inputTokens": 3400, "images": 3 },
     "comments": { "version": "1:gpt-6-luna", "ms": 1500, "costUsd": 0.00105, "apinoaCalls": 1, "requests": 1, "inputTokens": 500 }
   },

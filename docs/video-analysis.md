@@ -157,7 +157,7 @@ A scene runs from one cut to the next; in a photo post, each photo is a scene.
 | `footage` | decide | `camera_face` · `camera_body` · `camera_no_person` · `screen` · `graphics` · `other` |
 | `showsProduct` | decide | yes · no; kept only when `sells` isn't `none` |
 | `spoken` | code | the words said in the scene ([Speech](#speech)) |
-| `onScreenText` | describe | the text in the frame, verbatim |
+| `onScreenText` | describe | the video's main caption in the frame, verbatim |
 | `frame` | code | the JPEG the model saw: the scene's middle frame, at most 512 px on its long side |
 
 The scene times are kept because nothing else holds them: the cuts are found in the video, which isn't kept, and
@@ -237,9 +237,13 @@ appears.
 
 ### onScreenText
 
-The text in the scene's frame, verbatim and in its own language: captions, titles, stickers, labels. TikTok's sticker
-text is given to the describe request to get the spelling right, but only text visible in the frame is written.
-Empty when the frame has none.
+The video's main caption in the scene's frame, verbatim and in its own language: the text added in the edit that says
+what is happening or being said, usually over the footage (subtitles, a hook line, a list item, a step). It is written
+in every scene it shows in, also when it stays on screen for the whole video. The fixed layout around the footage (a
+title or header in a band above or below it, the channel's name or logo, a watermark, a label such as FANMADE) and text
+that is part of the footage (an app's or game's interface, names, numbers, signs) are left out: repeated in every scene,
+they hid the caption that tells the scenes apart. TikTok's sticker text is given to the describe request to get the
+spelling right, but only text visible in the frame is written. Empty when the frame has no such caption.
 
 ## Speech
 

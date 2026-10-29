@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1 (2026-10-29)
+
+- `onScreenText` is the video's main caption only: the subtitles, hook line, list item or step added in the edit,
+  written in every scene it shows in. The fixed layout around the footage (a header or title band, the channel's name
+  or logo, a watermark, labels) and text in the footage (an app's or game's interface) are left out. On 15 public
+  TikToks (app, study, beauty, game and Korean gameplay accounts) the headers, logos and UI text that 0.4.0 repeated in
+  every scene are gone, and the describe request costs the same ($0.00511 → $0.00498 for the 15 on flex: +75 input
+  tokens, 10% fewer output tokens). 3 of the 231 scenes lost a caption that 0.4.0 had. `eval/` doesn't score
+  `onScreenText`; 23 of 768 other labels changed, about as many as a second run of the same prompt (the format of
+  gameplay clips flipped between `highlight` and `tutorial` both ways).
+- The describe stage is version 2, so `reuse` of a 0.4.0 result describes and decides again.
+
 ## 0.4.0 (2026-10-29)
 
 A new record, `schemaVersion` 2, defined in [docs/video-analysis.md](docs/video-analysis.md). Breaking.

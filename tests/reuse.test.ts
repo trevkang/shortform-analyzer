@@ -35,8 +35,18 @@ describe.skipIf(!hasFfmpeg)("reuse and failure", () => {
     const other = openaiDescriber({ model: "gpt-6-luna-mini", openaiApiKey: "k", fetch: h.fetchFn });
     const swapped = ok(await analyzeVideo(cuts, { ...KEYS, fetch: h.fetchFn, reuse: json(first), describer: other }));
     expect(h.kinds()).toEqual(["describe", "decide"]);
-    expect(swapped.stages.describe).toMatchObject({ version: "1:gpt-6-luna-mini", costUsd: 0 }); // not in the price table
+    expect(swapped.stages.describe).toMatchObject({ version: "2:gpt-6-luna-mini", costUsd: 0 }); // not in the price table
     expect(swapped.stages.scenes?.reused).toBe(true);
+  });
+
+  it("a 0.4.0 result, described with the old prompt, is described and decided again", async () => {
+    const old = json(ok(await analyzeVideo(cuts, { ...KEYS, fetch: fake().fetchFn })));
+    old.stages.describe!.version = "1:gpt-6-luna";
+    const f = fake();
+    const again = ok(await analyzeVideo(cuts, { ...KEYS, fetch: f.fetchFn, reuse: old }));
+    expect(f.kinds()).toEqual(["describe", "decide"]);
+    expect(again.stages.describe?.version).toBe("2:gpt-6-luna");
+    expect(again.stages.frames?.reused).toBe(true);
   });
 
   it("Example 19: the rules run again on reused answers", async () => {

@@ -131,7 +131,7 @@ describe.skipIf(!hasFfmpeg)("the flex tier", () => {
     const a = ok(await analyzeVideo(cuts, { ...KEYS, fetch: f.fetchFn, flex: true }));
     expect(f.calls[0].body.service_tier).toBe("flex");
     expect(f.calls[1].body.service_tier).toBeUndefined(); // Decisions has no flex tier
-    expect(a.stages.describe).toMatchObject({ version: "1:gpt-6-luna", serviceTier: "flex", costUsd: 0.0001 });
+    expect(a.stages.describe).toMatchObject({ version: "2:gpt-6-luna", serviceTier: "flex", costUsd: 0.0001 });
   });
 
   it("waits for flex capacity, then runs on the standard tier", async () => {

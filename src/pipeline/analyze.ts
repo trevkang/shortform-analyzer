@@ -17,7 +17,7 @@ import { openaiDecider, openaiDescriber, openaiTranscriber } from "./engines.js"
 
 /** Raised when a stage's code, prompt or questions change, so `reuse` runs it again. */
 export const STAGE_VERSIONS: Record<StageName, string> = {
-  source: "1", scenes: "1", frames: "1", speech: "1", describe: "1", decide: "1", comments: "1",
+  source: "1", scenes: "1", frames: "1", speech: "1", describe: "2", decide: "1", comments: "1",
 };
 
 /** What each stage reads: a stage is taken from `reuse` only when these were taken too. */

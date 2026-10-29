@@ -116,6 +116,14 @@ describe("describe", () => {
     expect((r.schema as any).required).toEqual(["product", "tags", "description", "formatDescription", "onScreenText"]);
     expect((r.schema as any).additionalProperties).toBe(false);
   });
+  it("asks only for the main caption, without the text that stays or belongs to the footage", () => {
+    const r = describeRequest(2);
+    expect(r.instructions).toMatch(/onScreenText: one entry per scene, in order \(2 entries\): only the video's main caption/);
+    expect(r.instructions).toMatch(/Leave out the fixed layout around the footage/);
+    expect(r.instructions).toMatch(/also when it stays on screen for several scenes or the whole video/);
+    expect(r.instructions).toMatch(/text that is part of the footage itself/);
+    expect(r.instructions).not.toMatch(/captions, titles, stickers, labels/);
+  });
   it("cleans tags, keeps at most 10, and empties what was left out", () => {
     const tags = ["#Study", "League of Legends", "study", "k-beauty", "", ...Array.from({ length: 12 }, (_, i) => `t${i}`)];
     const d = parseDescribed({ tags, onScreenText: ["a"] }, 2);
