@@ -2,33 +2,120 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/trevkang/shortform-analyzer/schema/analysis.schema.json",
   "title": "Analysis",
-  "description": "What shortform-analyzer's analyzeVideo returns (schemaVersion 1).",
+  "description": "What shortform-analyzer's analyzeVideo returns (schemaVersion 2): the record of docs/video-analysis.md plus how it was made.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schemaVersion",
     "ok",
+    "media",
     "duration",
-    "scenes",
-    "sections",
+    "speech",
+    "topic",
     "format",
-    "formatProbs",
-    "goal",
     "sells",
-    "production",
-    "voice",
-    "transcript"
+    "asksForComment",
+    "product",
+    "tags",
+    "description",
+    "formatDescription",
+    "scenes",
+    "stages",
+    "costUsd",
+    "raw"
   ],
   "properties": {
     "schemaVersion": {
-      "const": 1
+      "const": 2
     },
     "ok": {
       "const": true
     },
+    "media": {
+      "type": "string",
+      "enum": [
+        "video",
+        "photos"
+      ]
+    },
     "duration": {
       "type": "number",
       "exclusiveMinimum": 0
+    },
+    "speech": {
+      "type": "string",
+      "enum": [
+        "subtitles",
+        "transcription",
+        "none"
+      ]
+    },
+    "topic": {
+      "type": "string",
+      "enum": [
+        "beauty",
+        "fashion",
+        "gaming",
+        "tech",
+        "education",
+        "business_money",
+        "entertainment",
+        "music_dance",
+        "food",
+        "fitness_sports",
+        "shopping",
+        "lifestyle",
+        "other"
+      ]
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "tutorial",
+        "listicle",
+        "before_after",
+        "review",
+        "storytime",
+        "skit",
+        "performance",
+        "reaction",
+        "highlight",
+        "interview",
+        "vlog",
+        "talking_head",
+        "other"
+      ]
+    },
+    "sells": {
+      "type": "string",
+      "enum": [
+        "none",
+        "software",
+        "physical_goods",
+        "service",
+        "digital_content",
+        "other"
+      ]
+    },
+    "asksForComment": {
+      "type": "boolean"
+    },
+    "product": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "pattern": "^[\\p{L}\\p{N}]+$"
+      }
+    },
+    "description": {
+      "type": "string"
+    },
+    "formatDescription": {
+      "type": "string"
     },
     "scenes": {
       "type": "array",
@@ -38,90 +125,65 @@
         "$ref": "#/definitions/scene"
       }
     },
-    "sections": {
+    "comments": {
       "type": "array",
-      "minItems": 1,
+      "maxItems": 50,
       "items": {
-        "$ref": "#/definitions/section"
+        "$ref": "#/definitions/comment"
       }
-    },
-    "format": {
-      "type": "string",
-      "enum": [
-        "meme",
-        "skit",
-        "product_demo",
-        "tutorial",
-        "review",
-        "storytime",
-        "before_after",
-        "unboxing",
-        "behind_the_scenes",
-        "talking_head",
-        "other"
-      ]
-    },
-    "formatProbs": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1
-      }
-    },
-    "goal": {
-      "type": "string",
-      "enum": [
-        "conversion",
-        "awareness"
-      ]
-    },
-    "sells": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "production": {
-      "type": "string",
-      "enum": [
-        "on_camera_person",
-        "screen_recording",
-        "hands_only",
-        "broll_voiceover",
-        "text_only",
-        "animation",
-        "mixed"
-      ]
-    },
-    "voice": {
-      "type": "string",
-      "enum": [
-        "on_camera_speech",
-        "voiceover",
-        "none",
-        "music_only"
-      ]
     },
     "answers": {
       "type": "object",
       "additionalProperties": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1
+        "type": [
+          "boolean",
+          "string"
+        ]
       }
     },
-    "transcript": {
-      "type": "string"
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/stage"
+        },
+        "scenes": {
+          "$ref": "#/definitions/stage"
+        },
+        "frames": {
+          "$ref": "#/definitions/stage"
+        },
+        "speech": {
+          "$ref": "#/definitions/stage"
+        },
+        "describe": {
+          "$ref": "#/definitions/stage"
+        },
+        "decide": {
+          "$ref": "#/definitions/stage"
+        },
+        "comments": {
+          "$ref": "#/definitions/stage"
+        }
+      }
     },
-    "language": {
-      "type": "string"
-    },
-    "transcriptError": {
-      "type": "string"
-    },
-    "inputTokens": {
-      "type": "integer",
+    "costUsd": {
+      "type": "number",
       "minimum": 0
+    },
+    "raw": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "post": {},
+        "subtitles": {},
+        "transcript": {},
+        "describe": {},
+        "decide": {},
+        "comments": {},
+        "commentsDecide": {}
+      }
     }
   },
   "definitions": {
@@ -132,13 +194,12 @@
         "index",
         "start",
         "end",
-        "thumbnail",
-        "transcript",
-        "beat",
-        "beatProbs",
-        "lever",
-        "leverProbs",
-        "hold"
+        "cut",
+        "role",
+        "footage",
+        "spoken",
+        "onScreenText",
+        "frame"
       ],
       "properties": {
         "index": {
@@ -151,110 +212,141 @@
         },
         "end": {
           "type": "number",
-          "minimum": 0
+          "exclusiveMinimum": 0
         },
         "cut": {
-          "const": false,
-          "description": "Present only when the scene continues the take before it"
+          "type": "boolean"
         },
-        "thumbnail": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "hook",
+            "body",
+            "payoff",
+            "cta"
+          ]
+        },
+        "footage": {
+          "type": "string",
+          "enum": [
+            "camera_face",
+            "camera_body",
+            "camera_no_person",
+            "screen",
+            "graphics",
+            "other"
+          ]
+        },
+        "showsProduct": {
+          "type": "boolean"
+        },
+        "spoken": {
+          "type": "string"
+        },
+        "onScreenText": {
+          "type": "string"
+        },
+        "frame": {
           "type": "string",
           "pattern": "^data:image/jpeg;base64,"
         },
-        "transcript": {
-          "type": "string"
-        },
-        "beat": {
-          "type": "string",
-          "enum": [
-            "hook",
-            "setup",
-            "value",
-            "proof",
-            "payoff",
-            "cta"
-          ]
-        },
-        "beatProbs": {
+        "answers": {
           "type": "object",
           "additionalProperties": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
+            "type": [
+              "boolean",
+              "string"
+            ]
           }
-        },
-        "lever": {
-          "type": "string",
-          "enum": [
-            "curiosity",
-            "pattern_interrupt",
-            "relatable",
-            "demonstration",
-            "social_proof",
-            "emotion",
-            "direct_ask",
-            "none"
-          ]
-        },
-        "leverProbs": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          }
-        },
-        "hold": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 4
-        },
-        "textOnScreen": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
         }
       }
     },
-    "section": {
+    "comment": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "beat",
-        "start",
-        "end",
-        "scenes",
-        "transcript"
+        "id",
+        "text",
+        "likes",
+        "kind"
       ],
       "properties": {
-        "beat": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "likes": {
+          "type": "number",
+          "minimum": 0
+        },
+        "kind": {
           "type": "string",
           "enum": [
-            "hook",
-            "setup",
-            "value",
-            "proof",
-            "payoff",
-            "cta"
+            "cta_reply",
+            "intent",
+            "negative",
+            "positive",
+            "other"
           ]
+        }
+      }
+    },
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "ms",
+        "costUsd"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
         },
-        "start": {
+        "ms": {
           "type": "number",
           "minimum": 0
         },
-        "end": {
+        "costUsd": {
           "type": "number",
           "minimum": 0
         },
-        "scenes": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "integer",
-            "minimum": 0
-          }
+        "reused": {
+          "const": true
         },
-        "transcript": {
+        "requests": {
+          "type": "number",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": "number",
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": "number",
+          "minimum": 0
+        },
+        "images": {
+          "type": "number",
+          "minimum": 0
+        },
+        "audioSec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "apinoaCalls": {
+          "type": "number",
+          "minimum": 0
+        },
+        "video": {
+          "type": "string",
+          "pattern": "^(tiktok:\\d+|sha256:[0-9a-f]{64})$"
+        },
+        "error": {
           "type": "string"
         }
       }

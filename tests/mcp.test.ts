@@ -1,11 +1,11 @@
-// The MCP server through a real MCP client over an in-memory transport, with OpenAI faked at fetch.
-import { existsSync, readFileSync } from "node:fs";
+// The MCP server through a real MCP client over an in-memory transport, with OpenAI and apinoa faked at fetch.
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { createServer } from "../src/mcp.js";
-import { fakeOpenAI, hasFfmpeg, makeCuts, tmp } from "./helpers.js";
+import { fake, hasFfmpeg, KEYS, makeCuts, POST_ID, TIKTOK_URL, tmp } from "./helpers.js";
 
 async function connect(options: Parameters<typeof createServer>[0]) {
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -18,47 +18,40 @@ async function connect(options: Parameters<typeof createServer>[0]) {
 const text = (r: unknown) => ((r as { content: { text: string }[] }).content[0].text);
 
 describe("mcp", () => {
-  it("lists analyze_video and screen_video", async () => {
+  it("lists analyze_video with input, questions and transcribe", async () => {
     const client = await connect({});
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["analyze_video", "screen_video"]);
-    expect(Object.keys(tools.find((t) => t.name === "analyze_video")!.inputSchema.properties!)).toEqual(["input", "questions"]);
-  });
-
-  it("states the time the README's benchmark measured, as the skill does", async () => {
-    const client = await connect({});
-    const { tools } = await client.listTools();
-    expect(tools.find((t) => t.name === "analyze_video")!.description).toMatch(/under 10 seconds/);
-    expect(readFileSync("skills/shortform-analyzer/SKILL.md", "utf8")).toMatch(/under 10 seconds/);
+    expect(tools.map((t) => t.name)).toEqual(["analyze_video"]);
+    expect(Object.keys(tools[0].inputSchema.properties!)).toEqual(["input", "questions", "transcribe"]);
   });
 
   it("returns a tool error, not a crash, on a bad input", async () => {
-    const client = await connect({ openaiApiKey: "k" });
+    const client = await connect(KEYS);
     const r = await client.callTool({ name: "analyze_video", arguments: { input: "https://example.com/v.mp4" } });
     expect(r.isError).toBe(true);
-    expect(text(r)).toMatch(/download the video first/);
+    expect(text(r)).toMatch(/^input: only TikTok post URLs are read/);
   });
 
-  it.skipIf(!hasFfmpeg)("analyze_video returns the summary, the folder and the analysis without thumbnails", async () => {
+  it.skipIf(!hasFfmpeg)("analyze_video returns the summary, the folder and the analysis without frames or raw", async () => {
     const outDir = tmp();
-    const client = await connect({ openaiApiKey: "k", fetch: fakeOpenAI().fetchFn, outDir });
-    const r = await client.callTool({ name: "analyze_video", arguments: { input: makeCuts(true), questions: [{ name: "red", question: "Is it red?" }] } });
+    const f = fake({ video: makeCuts(true) });
+    const client = await connect({ ...KEYS, fetch: f.fetchFn, outDir });
+    const r = await client.callTool({
+      name: "analyze_video",
+      arguments: { input: TIKTOK_URL, questions: [{ name: "red", question: "Is it red?" }, { name: "shot", question: "Shot?", scope: "scene", choices: ["close", "wide"] }] },
+    });
     expect(r.isError).toBeFalsy();
     const t = text(r);
-    expect(t).toMatch(/^meme, awareness/);
+    expect(t).toMatch(/^listicle about education/);
     const folder = t.match(/Folder: (\S+)/)![1];
-    expect(folder.startsWith(outDir)).toBe(true);
+    expect(folder).toBe(join(outDir, `${POST_ID}.analysis`));
     expect(existsSync(join(folder, "sheet.jpg"))).toBe(true);
     const json = JSON.parse(t.slice(t.lastIndexOf("\n\n") + 2));
     expect(json.scenes).toHaveLength(3);
-    expect(json.scenes[0].thumbnail).toBeUndefined();
+    expect(json.scenes[0].frame).toBeUndefined();
+    expect(json.raw).toBeUndefined();
     expect(t).not.toContain("base64");
-    expect(json.answers).toEqual({ red: 0.9 });
-  });
-
-  it.skipIf(!hasFfmpeg)("screen_video returns production, voice and answers", async () => {
-    const client = await connect({ openaiApiKey: "k", fetch: fakeOpenAI().fetchFn });
-    const r = await client.callTool({ name: "screen_video", arguments: { input: makeCuts(false), questions: [{ name: "red", question: "Is it red?" }] } });
-    expect(JSON.parse(text(r))).toEqual({ production: "text_only", voice: "music_only", answers: { red: 0.9 } });
+    expect(json.answers).toEqual({ red: true });
+    expect(json.scenes[1].answers).toEqual({ shot: "close" });
   });
 });

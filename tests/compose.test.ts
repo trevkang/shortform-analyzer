@@ -1,45 +1,51 @@
-// Success criterion 6 and Example 17: the parts rebuild the whole, and Layer 3 reaches the parts only through primitives.ts.
+// Example 17: the parts rebuild the whole, and Layer 3 reaches the parts only through primitives.ts.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { analyzeVideo } from "../src/index.js";
+import { analyzeVideo, openaiDecider, openaiDescriber, type Analysis } from "../src/index.js";
 import * as P from "../src/primitives.js";
-import { fakeOpenAI, hasFfmpeg, makeCuts, makeLongTake } from "./helpers.js";
+import { fake, hasFfmpeg, KEYS, makeCuts, makeLongTake } from "./helpers.js";
 
-/** analyzeVideo written in the test from the primitives exports alone. */
-async function rebuilt(video: string, options: P.Options): Promise<P.Analysis> {
-  const { duration, audio } = await P.probe(video);
+const dataUrl = (b: Buffer) => `data:image/jpeg;base64,${b.toString("base64")}`;
+
+/** A video file's record, written in the test from the primitives exports and the default engines alone. */
+async function rebuilt(video: string, options: P.Options): Promise<Omit<Analysis, "stages" | "costUsd">> {
+  const describer = openaiDescriber(options);
+  const decider = openaiDecider(options);
+  const { duration } = await P.probe(video);
   const spans = await P.detectScenes(video, { duration });
   const frames = await P.extractFrames(video, spans);
-  const thumbs = await P.extractFrames(video, spans, { side: P.THUMB_SIDE });
-  const transcript = audio ? await P.transcribe(await P.extractAudio(video), options) : { text: "", words: [] as P.Word[] };
-  const texts = P.alignWords(transcript.words, spans);
-  const d = await P.decide(P.sceneEvidence(spans, frames, texts, { duration, intro: P.SHORTFORM_INTRO }), P.shortformQuestions(), options);
-  const labels = P.parseShortform(d);
-  const scenes: P.Scene[] = spans.map((s, i) => ({
-    index: i, start: s.start, end: s.end, ...(s.cut === false ? { cut: false as const } : {}),
-    thumbnail: `data:image/jpeg;base64,${thumbs[i].toString("base64")}`, transcript: texts[i], ...labels.scenes[i],
-  }));
+  const spoken = spans.map(() => "");
+  const facts: P.RecordFacts = { media: "video", duration, scenes: spans.length, speech: "none" };
+  const evidence = (d?: P.Described) => P.sceneEvidence(spans, frames, spoken, { duration, intro: P.recordIntro(facts, d), words: "none" });
+  const out = await describer.describe(evidence(), P.describeRequest(spans.length));
+  const described = P.parseDescribed(out.output, spans.length);
+  const decisions = await decider.decide(evidence(described), P.recordQuestions());
+  const r = P.parseRecord(decisions, { spans, product: described.product });
   return {
-    schemaVersion: 1, ok: true, duration, scenes, sections: P.sectionsOf(scenes),
-    format: labels.format, formatProbs: labels.formatProbs, goal: labels.goal, sells: labels.sells,
-    production: labels.production, voice: labels.voice, transcript: transcript.text,
-    ...(transcript.language ? { language: transcript.language } : {}),
-    ...(audio ? {} : { transcriptError: "no audio track" }),
-    ...(labels.inputTokens !== undefined ? { inputTokens: labels.inputTokens } : {}),
+    schemaVersion: 2, ok: true, media: "video", duration, speech: "none",
+    topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment, product: r.product,
+    tags: described.tags, description: described.description, formatDescription: described.formatDescription,
+    scenes: spans.map((s, i) => ({
+      index: i, start: s.start, end: s.end, cut: s.cut !== false, role: r.scenes[i].role, footage: r.scenes[i].footage,
+      ...(r.scenes[i].showsProduct !== undefined ? { showsProduct: r.scenes[i].showsProduct } : {}),
+      spoken: spoken[i], onScreenText: described.onScreenText[i], frame: dataUrl(frames[i]),
+    })),
+    raw: { describe: out.output, decide: decisions },
   };
 }
 
 describe.skipIf(!hasFfmpeg)("composition (Example 17)", () => {
   const videos: Record<string, string> = {};
-  beforeAll(() => { videos.cuts = makeCuts(true); videos.silent = makeCuts(false); videos.take = makeLongTake(); });
+  beforeAll(() => { videos.cuts = makeCuts(true); videos.take = makeLongTake(); });
 
-  for (const name of ["cuts", "silent", "take"]) {
+  for (const name of ["cuts", "take"]) {
     it(`a pipeline made from primitives equals analyzeVideo on ${name}`, async () => {
-      const options = { openaiApiKey: "k", fetch: fakeOpenAI().fetchFn };
+      const options = { ...KEYS, fetch: fake({ sells: "software", product: "Notewise", roles: ["hook", "hook", "cta"] }).fetchFn };
       const whole = await analyzeVideo(videos[name], options);
-      expect(whole.ok).toBe(true);
-      expect(await rebuilt(videos[name], options)).toEqual(whole);
+      if (!whole.ok) throw new Error(whole.error);
+      const { stages: _s, costUsd: _c, ...record } = whole;
+      expect(await rebuilt(videos[name], options)).toEqual(record);
     });
   }
 });
@@ -47,13 +53,13 @@ describe.skipIf(!hasFfmpeg)("composition (Example 17)", () => {
 describe("layer rules", () => {
   const files = (dir: string) => readdirSync(join("src", dir)).filter((f) => f.endsWith(".ts")).map((f) => [f, readFileSync(join("src", dir, f), "utf8")] as const);
 
-  it("pipeline/ imports blocks/ and shortform/ only through primitives.ts", () => {
-    for (const [f, src] of files("pipeline")) expect(src, f).not.toMatch(/from "\.\.\/(blocks|shortform)\//);
+  it("pipeline/ imports blocks/ and record/ only through primitives.ts", () => {
+    for (const [f, src] of files("pipeline")) expect(src, f).not.toMatch(/from "\.\.\/(blocks|record)\//);
   });
 
-  it("shortform/ (Layer 2) runs no programs and makes no requests", () => {
-    for (const [f, src] of files("shortform")) {
-      expect(src, f).not.toMatch(/node:child_process|fetch\(|from "\.\.\/blocks\//);
+  it("record/ (Layer 2) runs no programs, makes no requests and uses no block", () => {
+    for (const [f, src] of files("record")) {
+      expect(src, f).not.toMatch(/node:child_process|node:fs|fetch\(|from "\.\.\/blocks\//);
     }
   });
 
@@ -68,8 +74,14 @@ describe("layer rules", () => {
     for (const f of ["index.ts", "primitives.ts"]) expect(readFileSync(join("src", f), "utf8"), f).not.toMatch(/modelcontextprotocol/);
   });
 
-  it("does not depend on apinoa", () => {
+  it("apinoa is reached only through @apinoa/sdk in blocks/apinoa.ts", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8"));
-    expect(Object.keys({ ...pkg.dependencies, ...pkg.optionalDependencies })).not.toContain("@apinoa/sdk");
+    expect(Object.keys(pkg.dependencies)).toContain("@apinoa/sdk");
+    for (const dir of ["blocks", "record", "pipeline"]) {
+      for (const [f, src] of files(dir)) {
+        expect(src, f).not.toMatch(/gateway\.apinoa\.com/);
+        if (!(dir === "blocks" && f === "apinoa.ts")) expect(src, f).not.toMatch(/^import (?!type)[^;]*from "@apinoa\/sdk"/m);
+      }
+    }
   });
 });

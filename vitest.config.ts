@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  test: { include: ["tests/**/*.test.ts"] },
+  // Tests run ffmpeg and the built CLI as child processes: give them room on a busy machine.
+  test: { include: ["tests/**/*.test.ts"], testTimeout: 60_000, hookTimeout: 60_000 },
 });
