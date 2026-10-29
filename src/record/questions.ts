@@ -49,7 +49,7 @@ export const RECORD_QUESTIONS: DecisionQuestion[] = [
   },
   {
     type: "choice", name: "sells", choices: choices("sells", SELLS),
-    instructions: `${rules("sells")} TikTok's commercial tags say whether a pitch is paid, not whether there is one.`,
+    instructions: rules("sells"),
   },
   {
     type: "predicate", name: "asks_for_comment",

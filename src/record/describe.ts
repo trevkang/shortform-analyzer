@@ -13,7 +13,7 @@ export type Described = {
 };
 
 const INSTRUCTIONS = `You write the text fields of a record of one short-form video, from its frames, the words said in it and what TikTok says about it. Write in English, except onScreenText.
-- product: the name of the product the video pitches, a specific product it names or links and recommends that the viewer get. Showing or using a product isn't a pitch. Empty when it pitches none.
+- product: the name of the product the video pitches, a specific product it names or links and recommends that the viewer get. Showing or using a product isn't a pitch, unless the post has one of TikTok's commercial tags or the product's own account posted it. Empty when it pitches none.
 - tags: 5 to 10 single lowercase English words for what the video means: its specific subject (skincare, furniture), the names in it (amazon, duolingo), its intent (recommendation, deal, dupe), who it's for only when the video says or writes it (students, moms, gamers), and funny when the video is built around a joke or a punchline. More specific than the topic. Join a name of several words like a hashtag: leagueoflegends. Nothing about how it's made: green screen, voiceover, AI footage and reused clips go in formatDescription.
 - description: what the video is about, in a few sentences.
 - formatDescription: how it is made, so someone could remake it about something else: the shots, the edit, how it opens, where the product appears, and techniques such as green screen, voiceover, AI-generated footage or clips taken from someone else.

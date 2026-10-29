@@ -121,10 +121,10 @@ export const TAXONOMY: {
     values: SELLS,
     rules: [
       "Whether the video pitches something: it names or links a specific product and recommends that the viewer get it.",
-      "Showing or using a product isn't enough.",
+      "Showing or using a product isn't enough, unless the post has one of TikTok's commercial tags or the product's own account posted it.",
     ],
     about: {
-      none: row("No product is named or linked and recommended.", "a dance; study tips", 'A tips video ending "download my app" → software'),
+      none: row("Nothing is pitched.", "a dance; study tips", `A tips video ending "download my app" → software; an app's own account using its app → software`),
       software: row("The buyer runs it.", "an iOS app, a web tool, a browser extension, a game", "Only playing a game → none; a Notion template → digital_content"),
       physical_goods: row("It is shipped.", "a serum, a hoodie", "Only using a lipstick in a makeup tutorial → none; a printable PDF planner → digital_content"),
       service: row("A person does work for the buyer.", "a clinic, an agency, 1:1 coaching", "A coaching app → software"),

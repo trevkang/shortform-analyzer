@@ -29,19 +29,21 @@ function tiktokLines(post: Post): string[] {
     ext.disclosure === "commission" && "commission",
     ext.disclosure === "promotional" && "promotional",
     ext.ranAsAd === true && "ran as an ad",
-    post.aiGenerated === true && "AI-generated",
   ].filter(Boolean);
+  const name = post.author?.displayName?.trim();
   const effects = (Array.isArray(ext.anchors) ? ext.anchors : []).map((a: { name?: unknown }) => a?.name).filter((n: unknown) => typeof n === "string" && n);
   const sound = post.audio?.title
     ? `Sound: ${quote(post.audio.title)}${post.audio.artist ? ` by ${post.audio.artist}` : ""}` +
       `${ext.music?.original === true ? ", the creator's own sound" : ext.music?.original === false ? ", not the creator's own sound" : ""}.`
     : "";
   return [
+    post.author?.handle ? `Account: @${post.author.handle}${name && name !== post.author.handle ? ` (${quote(name)})` : ""}.` : "",
     post.text?.trim() ? `Caption: ${quote(post.text)}.` : "",
     strings(post.entities?.hashtags).length ? `Hashtags: ${strings(post.entities?.hashtags).map((h) => `#${h}`).join(" ")}.` : "",
     strings(ext.stickerText).length ? `Sticker text: ${strings(ext.stickerText).map(quote).join("; ")}.` : "",
     strings(ext.diversificationLabels).length ? `TikTok's topic labels: ${strings(ext.diversificationLabels).join(", ")}.` : "",
     tags.length ? `TikTok's commercial tags: ${tags.join(", ")}.` : "",
+    post.aiGenerated === true ? "TikTok labels it AI-generated." : "",
     effects.length ? `Effects: ${effects.join("; ")}.` : "",
     sound,
   ].filter(Boolean);
