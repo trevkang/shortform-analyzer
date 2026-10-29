@@ -30,10 +30,13 @@ for (const file of readdirSync(labelsDir).filter((f) => f.endsWith(".json")).sor
   const sure = (key) => !unsure.some((u) => u === key || u.startsWith(`${key}.`) || u.startsWith(`${key}[`));
   videos++;
   for (const f of ["topic", "format", "sells", "asksForComment"]) count(f, want[f], got[f], sure(f), id);
-  // A product is right when both name one and either name holds the other.
+  // A product is right when most of the reference's names are found: a name is found when one of the analysis's
+  // holds it or is held in it. Names are split on commas and "and", ignoring case.
   if (want.sells !== "none" && got.sells !== "none") {
-    const a = want.product.toLowerCase(), b = got.product.toLowerCase();
-    count("product", true, Boolean(a && b && (a.includes(b) || b.includes(a))), sure("product"), id);
+    const names = (s) => s.toLowerCase().split(/,| and /).map((n) => n.trim()).filter(Boolean);
+    const theirs = names(want.product), mine = names(got.product);
+    const found = theirs.filter((r) => mine.some((m) => m.includes(r) || r.includes(m)));
+    count("product", true, theirs.length > 0 && found.length * 2 > theirs.length, sure("product"), id);
   }
   if (want.scenes.length !== got.scenes.length) { console.error(`${id}: ${want.scenes.length} labelled scenes, ${got.scenes.length} in the analysis; scenes skipped`); continue; }
   want.scenes.forEach((s, i) => {
