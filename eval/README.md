@@ -44,7 +44,7 @@ frame per scene and the words in each scene. Don't look at the record while labe
 
 `repeat.mjs` analyses each video again, `--runs` times, from the analysis's own frames and words: each run describes
 it again and asks the decide request with the candidate scene facets of [`candidates.mjs`](candidates.mjs) in it
-(`voice`, `layout`, `shot` and `text`, which aren't in the record). Decide alone wouldn't move: OpenAI's Decisions
+(`split_screen`, `overlay`, `text_bar`, `subject`, `captions` and `message`, which aren't in the record). Decide alone wouldn't move: OpenAI's Decisions
 answered 5 runs of the same evidence identically, to the probability, on all 36 posts tried. `stability.mjs` reports per
 field how often every run agrees, how often two runs agree, the values that trade places and how often the two most
 probable values were within 0.2 (a near tie), and with labels each run's accuracy and the majority's. A field that keeps
@@ -56,8 +56,8 @@ node eval/stability.mjs out/ labels/     # the table, then every miss of the maj
 node eval/stability.mjs out/ labels/ --json
 ```
 
-A candidate's label goes in its scene, next to `role` and `footage`: `"voice": "off_frame"`, `"layout": "full"`,
-`"shot": "app"`, `"text": "captions"`. `role` is compared from scene 2, since scene 1 is the hook by rule.
+A candidate's label goes in its scene, next to `role` and `footage`, named in camelCase as `showsProduct` is:
+`"splitScreen": false`, `"overlay": true`, `"textBar": false`, `"subject": "interface"`, `"captions": true`, `"message": false`. `role` is compared from scene 2, since scene 1 is the hook by rule.
 
 ## Results, 0.4.0
 

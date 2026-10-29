@@ -68,18 +68,22 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
     const g = fake();
     const runs = await repeat(JSON.parse(JSON.stringify(first)), { runs: 2, ...KEYS, fetch: g.fetchFn });
     expect(g.kinds().sort()).toEqual(["decide", "decide", "describe", "describe"]);
-    const candidate = (q: { name: string }) => /^(voice|layout|shot|text)_\d+$/.test(q.name);
+    const candidate = (q: { name: string }) => /^(split_screen|overlay|text_bar|subject|captions|message)_\d+$/.test(q.name);
     for (const { body } of g.calls.filter((c) => c.kind === "describe")) expect(body).toEqual(sent("describe"));
     for (const { body } of g.calls.filter((c) => c.kind === "decide")) {
       expect(body.input).toEqual(sent("decide").input);
       expect(body.questions.filter((q: { name: string }) => !candidate(q))).toEqual(sent("decide").questions);
-      expect(body.questions.filter(candidate)).toHaveLength(4 * first.scenes.length);
+      expect(body.questions.filter(candidate)).toHaveLength(6 * first.scenes.length);
     }
     expect(runs).toHaveLength(2);
     expect(runs[0]).toMatchObject({ topic: first.topic, format: first.format, sells: first.sells, asksForComment: first.asksForComment });
-    // the fake answers a question it doesn't know with its first value
-    expect(runs[0].scenes[1]).toMatchObject({ role: first.scenes[1].role, footage: first.scenes[1].footage, voice: "in_frame", layout: "cutout", shot: "group", text: "captions" });
-    expect(runs[0].decisions.scenes[1].voice.probs.in_frame).toBe(0.7);
+    // the fake answers a choice it doesn't know with its first value, and a yes/no one with 0.5, which is yes
+    expect(runs[0].scenes[1]).toMatchObject({
+      role: first.scenes[1].role, footage: first.scenes[1].footage,
+      splitScreen: true, overlay: true, textBar: true, subject: "face", captions: true, message: true,
+    });
+    expect(runs[0].decisions.scenes[1].subject.probs.face).toBe(0.7);
+    expect(runs[0].decisions.scenes[1].split_screen.probability).toBe(0.5);
 
     // each run decides on what its own describe wrote
     let n = 0;
@@ -94,23 +98,28 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
 describe("eval/candidates.mjs", () => {
   it("with the record's questions, a video of the most scenes still fits one decide request", async () => {
     const { CANDIDATE_QUESTIONS } = await evalModule("candidates.mjs");
-    expect(expandQuestions([...recordQuestions(), ...CANDIDATE_QUESTIONS], MAX_SCENES)).toHaveLength(4 + 3 * MAX_SCENES - 1 + 4 * MAX_SCENES);
+    expect(expandQuestions([...recordQuestions(), ...CANDIDATE_QUESTIONS], MAX_SCENES)).toHaveLength(4 + 3 * MAX_SCENES - 1 + 6 * MAX_SCENES);
   });
 });
 
 describe("eval/stability.mjs", () => {
-  const scene = (o: object = {}) => ({ role: "body", footage: "screen", voice: "off_frame", layout: "full", shot: "app", text: "other", ...o });
-  const opening = { role: "hook", footage: "camera_face", voice: "in_frame", shot: "face", text: "captions" };
+  const scene = (o: object = {}) => ({
+    role: "body", footage: "screen", splitScreen: false, overlay: false, textBar: false, subject: "interface", captions: false, message: false, ...o,
+  });
+  const opening = { role: "hook", footage: "camera_face", subject: "face", captions: true };
   const run = (format: string, second: object = {}) => ({
     topic: "tech", format, sells: "none", asksForComment: false, scenes: [scene(opening), scene(second)],
   });
-  // the first run's answers with their probabilities: footage is a near tie in scene 2, not in scene 1
+  // the first run's answers with their probabilities: footage and split_screen are near ties in scene 2, not in scene 1
   const probs = (choice: string, p: Record<string, number>) => ({ choice, probs: p });
   const decisions = {
     video: { topic: probs("tech", { tech: 0.9, education: 0.1 }) },
-    scenes: [{ footage: probs("camera_face", { camera_face: 0.9, screen: 0.1 }) }, { footage: probs("screen", { screen: 0.5, graphics: 0.45, camera_face: 0.05 }) }],
+    scenes: [
+      { footage: probs("camera_face", { camera_face: 0.9, screen: 0.1 }), split_screen: { probability: 0.05 } },
+      { footage: probs("screen", { screen: 0.5, graphics: 0.45, camera_face: 0.05 }), split_screen: { probability: 0.45 } },
+    ],
   };
-  const runs = [{ ...run("review"), decisions }, run("tutorial", { shot: "card" }), run("review", { text: "message" })];
+  const runs = [{ ...run("review"), decisions }, run("tutorial", { subject: "slide" }), run("review", { message: true })];
   const stability = (root: string, ...args: string[]) =>
     JSON.parse(execFileSync(process.execPath, ["eval/stability.mjs", join(root, "out"), ...args, "--json"], { encoding: "utf8" }));
 
@@ -121,8 +130,8 @@ describe("eval/stability.mjs", () => {
     writeFileSync(join(root, "out", "1.analysis", "repeats.json"), JSON.stringify({ runs }));
     writeFileSync(join(root, "labels", "1.json"), JSON.stringify({
       topic: "tech", format: "review", sells: "none", asksForComment: false,
-      scenes: [scene({ ...opening, layout: "full" }), scene({ text: "message" })],
-      unsure: { "scenes[1].text": "other was close" },
+      scenes: [scene({ ...opening, overlay: true }), scene({ message: true })],
+      unsure: { "scenes[1].message": "no was close" },
     }));
     const out = stability(root, join(root, "labels"));
     const by = Object.fromEntries(out.fields.map((f: { field: string }) => [f.field, f]));
@@ -132,15 +141,21 @@ describe("eval/stability.mjs", () => {
     expect(by.format.pairwise).toBeCloseTo(1 / 3);
     expect(by.format.accuracy.mean).toBeCloseTo(2 / 3);
     expect(by.role).toMatchObject({ n: 1, allAgree: 1 }); // asked from scene 2: scene 1 is the hook by rule
-    expect(by.shot).toMatchObject({ n: 2, allAgree: 0.5, swaps: [{ a: "app", b: "card", n: 2 }] });
-    expect(by.shot.pairwise).toBeCloseTo(2 / 3);
-    expect(by.text).toMatchObject({ n: 2, allAgree: 0.5, majority: 0.5, nSure: 1, majoritySure: 1 });
-    expect(by.voice).toMatchObject({ nSure: 2 }); // a mark on one field of a scene leaves its other fields sure
+    expect(by.subject).toMatchObject({ n: 2, allAgree: 0.5, swaps: [{ a: "interface", b: "slide", n: 2 }] });
+    expect(by.subject.pairwise).toBeCloseTo(2 / 3);
+    expect(by.message).toMatchObject({ n: 2, allAgree: 0.5, majority: 0.5, nSure: 1, majoritySure: 1 });
+    expect(by.captions).toMatchObject({ nSure: 2 }); // a mark on one field of a scene leaves its other fields sure
+    expect(by.overlay).toMatchObject({ majority: 0.5 });
+    // a yes/no candidate's answers are read under its question's name: split_screen for splitScreen
+    expect(by.splitScreen).toMatchObject({ close: 0.5, closePairs: [{ a: "false", b: "true", n: 1 }] });
     expect(by.showsProduct).toMatchObject({ n: 0 }); // every run says the video sells nothing
     expect(by.footage).toMatchObject({ close: 0.5, closePairs: [{ a: "graphics", b: "screen", n: 1 }] }); // top two within 0.2
     expect(by.topic).toMatchObject({ close: 0, closePairs: [] });
     expect(by.format).toMatchObject({ close: null }); // no probabilities kept
-    expect(out.misses).toEqual([{ id: "1 scene 2", field: "text", want: "message", got: "other", votes: { other: 2, message: 1 } }]);
+    expect(out.misses).toEqual([
+      { id: "1 scene 1", field: "overlay", want: true, got: false, votes: { false: 3 } },
+      { id: "1 scene 2", field: "message", want: true, got: false, votes: { false: 2, true: 1 } },
+    ]);
   });
 
   it("without labels, reports only how the runs agree", () => {

@@ -15,8 +15,8 @@ if (!analysesDir) {
 }
 
 const VIDEO = ["topic", "format", "sells", "asksForComment"];
-const SCENE = ["role", "footage", "showsProduct", ...CANDIDATE_FIELDS];
-const ASKED = { asksForComment: "asks_for_comment", showsProduct: "shows_product" }; // the decide question, where its name differs
+const SCENE = ["role", "footage", "showsProduct", ...Object.keys(CANDIDATE_FIELDS)];
+const ASKED = { asksForComment: "asks_for_comment", showsProduct: "shows_product", ...CANDIDATE_FIELDS }; // the decide question, where its name differs
 const CLOSE = 0.2;
 const items = Object.fromEntries([...VIDEO, ...SCENE].map((f) => [f, []])); // field → [{ id, values and answers (one per run), want, sure }]
 let videos = 0;

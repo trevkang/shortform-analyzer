@@ -12,7 +12,7 @@ import {
   decide, DECISIONS_MODEL, describe, DESCRIBE_MODEL, describeRequest, parseDescribed, parseRecord, recordIntro, recordQuestions, sceneEvidence,
 } from "../dist/primitives.js";
 import { decisionsCost, PRICES, responsesCost } from "../dist/prices.js";
-import { CANDIDATE_FIELDS, CANDIDATE_QUESTIONS } from "./candidates.mjs";
+import { CANDIDATE_FIELDS, CANDIDATE_QUESTIONS, candidateValue } from "./candidates.mjs";
 
 const spansOf = (a) => a.scenes.map((s) => ({ start: s.start, end: s.end, ...(s.cut === false ? { cut: false } : {}) }));
 
@@ -40,7 +40,9 @@ export async function repeat(a, { runs = 5, ...openai } = {}) {
     const r = parseRecord(decisions, { spans, product: described.product });
     return {
       topic: r.topic, format: r.format, sells: r.sells, asksForComment: r.asksForComment,
-      scenes: r.scenes.map((s, i) => ({ ...s, ...Object.fromEntries(CANDIDATE_FIELDS.map((f) => [f, decisions.scenes[i]?.[f]?.choice ?? null])) })),
+      scenes: r.scenes.map((s, i) => ({
+        ...s, ...Object.fromEntries(Object.entries(CANDIDATE_FIELDS).map(([f, name]) => [f, candidateValue(name, decisions.scenes[i]?.[name])])),
+      })),
       describe: written.output, describeUsage: written.usage, decisions,
     };
   }));
