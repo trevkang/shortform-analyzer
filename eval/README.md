@@ -56,6 +56,10 @@ node eval/stability.mjs out/ labels/     # the table, then every miss of the maj
 node eval/stability.mjs out/ labels/ --json
 ```
 
+To compare two wordings of the candidates on the same evidence, keep one round's repeats.json under another name and
+run the other with `--describe-from <that name>`: each run reuses what describe wrote in the same run of that file and
+asks only decide, so the two rounds differ only by the questions.
+
 A candidate's label goes in its scene, next to `role` and `footage`, named in camelCase as `showsProduct` is:
 `"splitScreen": false`, `"overlay": true`, `"textBar": false`, `"subject": "interface"`, `"captions": true`, `"message": false`. `role` is compared from scene 2, since scene 1 is the hook by rule.
 

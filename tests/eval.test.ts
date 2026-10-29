@@ -93,6 +93,19 @@ describe.skipIf(!hasFfmpeg)("eval/repeat.mjs", () => {
     expect(read.sort()).toEqual(["Description 1", "Description 2"]);
     expect(again.map((r: { describe: { description: string } }) => r.describe.description).sort()).toEqual(["Description 1.", "Description 2."]);
   });
+
+  it("given what describe wrote in earlier runs, asks only the decide request, once per run, on that run's words", async () => {
+    const f = fake();
+    const first = await analyzeVideo(makeCuts(true), { ...KEYS, fetch: f.fetchFn });
+    if (!first.ok) throw new Error(first.error);
+    const { repeat } = await evalModule("repeat.mjs");
+    const describes = [1, 2].map((n) => ({ product: "", tags: [], description: `Description ${n}.`, formatDescription: "f", onScreenText: Array(first.scenes.length).fill("") }));
+    const g = fake();
+    const runs = await repeat(JSON.parse(JSON.stringify(first)), { describes, ...KEYS, fetch: g.fetchFn });
+    expect(g.kinds()).toEqual(["decide", "decide"]);
+    expect(g.calls.map((c) => readText(c.body).match(/Description \d/)![0]).sort()).toEqual(["Description 1", "Description 2"]);
+    expect(runs.map((r: { describe: { description: string } }) => r.describe.description)).toEqual(["Description 1.", "Description 2."]);
+  });
 });
 
 describe("eval/candidates.mjs", () => {
