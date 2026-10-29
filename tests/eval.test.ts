@@ -33,4 +33,20 @@ describe("eval/score.mjs", () => {
     expect(out.misses).toContainEqual({ id: "1 comment c1", field: "comment kind", want: "intent", got: "other" });
     expect(out.misses).toContainEqual({ id: "1 scene 2", field: "role", want: "cta", got: "body" });
   });
+
+  it("matches a product list name by name: most of the reference's names must be found", () => {
+    const root = tmp();
+    mkdirSync(join(root, "labels"));
+    const post = (id: string, want: string, got: string) => {
+      const base = { topic: "beauty", format: "listicle", sells: "physical_goods", asksForComment: false, scenes: [] };
+      writeFileSync(join(root, "labels", `${id}.json`), JSON.stringify({ ...base, product: want }));
+      mkdirSync(join(root, "out", `${id}.analysis`), { recursive: true });
+      writeFileSync(join(root, "out", `${id}.analysis`, "analysis.json"), JSON.stringify({ ...base, product: got }));
+    };
+    post("1", "Abib Cream and Collagen Mask, Gua Sha", "Abib cream, Abib Collagen Mask");
+    post("2", "Abib Cream and Collagen Mask, Gua Sha", "Abib cream");
+    const out = JSON.parse(execFileSync(process.execPath, ["eval/score.mjs", join(root, "labels"), join(root, "out"), "--json"], { encoding: "utf8" }));
+    expect(out.fields.find((f: { field: string }) => f.field === "product")).toMatchObject({ n: 2, accuracy: 0.5 });
+    expect(out.misses).toEqual([{ id: "2", field: "product", want: true, got: false }]);
+  });
 });
