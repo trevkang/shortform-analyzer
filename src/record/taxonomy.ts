@@ -168,12 +168,15 @@ export const TAXONOMY: {
     about: {
       cta_reply: row("Does what the video asked for in the comments: the keyword, an answer, a pick. Only offered when asksForComment is yes.", '"notes"; "2!"'),
       intent: row(
-        "Wants the product the video pitches, or already has it: asks its name, price, link, where to get it or how it works, or says they bought, downloaded or tried it.",
-        `"what's the app called?"; "does it work on Android?"; "just downloaded it"`,
+        "Wants the product the video pitches, or already has it: asks its name, price, link, where to get it or how it works, or says they need, bought, downloaded or use it. Only offered when sells isn't none.",
+        `"what's the app called?"; "does it work on Android?"; "I need this"; "just downloaded it"`,
       ),
-      negative: row("Criticizes or distrusts the video, the creator or the product.", '"this is an ad"; "doesn\'t work"'),
-      positive: row("Praises, agrees, relates or laughs, with no ask.", '"this is so useful"; "this is so me 😂"'),
-      other: row("Anything else: a question about the video itself, a friend's tag, emoji, spam.", '"🔥🔥"; "@sam"; "what did you edit this with?"'),
+      negative: row("Criticizes, distrusts or pushes back on the video, the creator or the product, a way to do without it included.", `"this is an ad"; "doesn't work"; "just use 2x speed"`),
+      positive: row("Praises, agrees, relates or laughs about the video, with no ask.", '"this is so useful"; "this is so me 😂"'),
+      other: row(
+        "Anything else: unrelated to the video, a question about the video itself, a friend's tag, emoji alone, spam, another product pushed.",
+        '"🔥🔥"; "@sam"; "what did you edit this with?"',
+      ),
     },
   },
 };

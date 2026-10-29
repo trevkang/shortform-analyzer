@@ -278,7 +278,7 @@ export async function analyzeVideo(input: Input, options: Options = {}): Promise
     let comments: Comment[] | undefined;
     if (src.kind === "tiktok" && options.comments !== false && commentsWanted(record)) {
       const version = `${STAGE_VERSIONS.comments}:${decider.id}`;
-      const forComments = { ...record, scenes };
+      const forComments = { ...record, description: described.description, scenes };
       const has = (p: NonNullable<typeof prev>) => p.raw?.comments !== undefined &&
         (p.raw.commentsDecide !== undefined || !commentList(p.raw.comments, post).length);
       if (take("comments", version, has)) {
